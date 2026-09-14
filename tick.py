@@ -205,6 +205,7 @@ def poll_updates(state: dict, token: str, menu: dict) -> None:
         return
 
     updates = result.get("result", [])
+    print(f"getUpdates (offset={offset}): {len(updates)} update(s)")
     if not updates:
         return
 
@@ -251,11 +252,28 @@ def send_due_notifications(state: dict, token: str, menu: dict, today: datetime)
     return blocked
 
 
+def debug_bot_info(token: str) -> None:
+    """One-off sanity check, cheap enough to run every tick: confirms the
+    token is valid and that no webhook is registered (a webhook would make
+    getUpdates return nothing, since Telegram only delivers via one channel
+    at a time)."""
+    try:
+        me = requests.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10).json()
+        hook = requests.get(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=10).json()
+        print(f"Bot: {me.get('result', {}).get('username')!r} (ok={me.get('ok')})")
+        webhook_url = hook.get("result", {}).get("url")
+        print(f"Webhook URL: {webhook_url or '(none -- good, polling will work)'}")
+    except requests.RequestException as exc:
+        print(f"debug_bot_info failed: {exc}", file=sys.stderr)
+
+
 def main() -> int:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         print("TELEGRAM_BOT_TOKEN is not set", file=sys.stderr)
         return 1
+
+    debug_bot_info(token)
 
     today = datetime.now(TIMEZONE)
     menu = load_active_menu(today)
