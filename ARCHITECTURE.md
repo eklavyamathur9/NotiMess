@@ -12,31 +12,27 @@ flowchart LR
         A[Photo of mess<br/>noticeboard poster] -->|Claude reads image,<br/>extracts structured data| B[data/menus/*.json]
     end
 
-    subgraph "Every ~15 min, unattended"
-        P[GitHub Actions<br/>poll_subscribers.yml] -->|Telegram getUpdates| TG[Telegram Bot API]
-        P -->|add/remove chat_id,<br/>commit| S[data/subscribers.json]
-    end
-
-    subgraph "4x/day, unattended"
-        C[GitHub Actions<br/>notify.yml] --> D[notifier.py]
+    subgraph "Every ~5 min, unattended"
+        C[GitHub Actions<br/>tick.yml] --> D[tick.py]
         B --> D
-        S --> D
-        D -->|sendMessage per subscriber| TG
+        D <-->|getUpdates / sendMessage| TG[Telegram Bot API]
+        D -->|read + write,<br/>commit if changed| S[data/subscribers.json]
     end
 
-    TG -->|push| U[Student's phone]
+    TG -->|push, per subscriber's<br/>own preferred time| U[Student's phone]
 ```
 
 ## 2. Why no external services beyond GitHub + Telegram
 
 An earlier draft of this architecture planned a webhook-based design: a serverless function (Vercel/Cloudflare) receiving Telegram's `/start` events in real time, backed by a key-value store (Upstash Redis) for the subscriber list. That works, but it means creating and maintaining two more third-party accounts for what is, functionally, a list of chat IDs.
 
-**Simplification adopted:** Telegram's Bot API supports *polling* (`getUpdates`) as well as webhooks — a client can just ask "any new messages since last time?" instead of needing a public HTTPS endpoint to receive pushes. So instead of a webhook function + Redis, a second GitHub Actions workflow polls every ~15 minutes, and the subscriber list is a JSON file **committed to the repo itself**, exactly like the menu data. This means:
+**Simplification adopted:** Telegram's Bot API supports *polling* (`getUpdates`) as well as webhooks — a client can just ask "any new messages since last time?" instead of needing a public HTTPS endpoint to receive pushes. So instead of a webhook function + Redis, GitHub Actions polls on a schedule, and the subscriber list is a JSON file **committed to the repo itself**, exactly like the menu data. This means:
 
-- Only two accounts needed, total: GitHub (already have) and Telegram (need a bot via @BotFather).
+- Only two accounts needed, total: GitHub (already have) and Telegram (bot via @BotFather).
 - No new hosting platform, no database service, no secrets to manage outside GitHub Actions secrets.
-- Trade-off accepted: a new subscriber's confirmation message arrives within ~15 minutes of `/start`, not instantly. Fine for "you'll start getting meal notifications" — nothing time-critical about the subscribe moment itself.
-- Minor trade-off: the polling workflow commits to the repo on every run that has new activity (not on empty polls), which is a little unconventional but keeps everything in one place and auditable via git history.
+- The tick workflow commits to the repo only on runs where something actually changed (a new subscriber, a preference change, a notification sent), which is a little unconventional but keeps everything in one place and auditable via git history.
+
+**Further simplification (added with per-subscriber notification times, §11):** originally this was two separate workflows — a 4x/day `notify.yml` sending at fixed times, and a ~15-min `poll_subscribers.yml` capturing `/start`/`/stop`. Once each subscriber can pick their *own* time per meal, "send at a fixed time" no longer makes sense — the system instead needs to check frequently whether *anyone's* preferred time has just passed. That check has to run often anyway, so polling for new Telegram messages was folded into the same run: **one script (`tick.py`), one workflow (`tick.yml`), every ~5 minutes.** This also removes a subtle risk the two-workflow design had — two independently-scheduled jobs writing to the same `data/subscribers.json` — since there's now only ever one writer.
 
 ## 3. Components
 
@@ -51,41 +47,23 @@ An earlier draft of this architecture planned a webhook-based design: a serverle
 - Owned exclusively by `poll_subscribers.py` (below) — `notifier.py` only ever reads it.
 - Committed to the repo by the poll workflow using the built-in `GITHUB_TOKEN` (no extra credential needed).
 
-### 3.3 Subscriber poller — `poll_subscribers.py` + `.github/workflows/poll_subscribers.yml`
-Runs on a `schedule` cron roughly every 15 minutes, plus `workflow_dispatch` for manual testing:
-1. Call Telegram's `getUpdates` with an `offset` past the last-seen update ID (persisted alongside the subscriber list so the same `/start` is never double-processed).
-2. For each new message:
-   - `/start` → add the `chat_id` to `data/subscribers.json` if not already present, reply with a short welcome message.
-   - `/stop` → remove the `chat_id` if present, reply with a goodbye/confirmation message.
-   - Anything else → ignored (or a one-line "send /start to subscribe, /stop to unsubscribe" reply).
-3. If anything changed, commit `data/subscribers.json` (and the persisted update offset) back to the repo.
-
-### 3.4 Scheduler — GitHub Actions (`.github/workflows/notify.yml`)
+### 3.3 Scheduler — GitHub Actions (`.github/workflows/tick.yml`)
 - Chosen over local cron because it doesn't depend on any personal device being powered on (reliability requirement).
-- Four `cron` triggers (UTC, since GitHub Actions cron doesn't support IST directly):
+- Single `schedule` cron, `*/5 * * * *` (every 5 minutes), plus `workflow_dispatch` for manual testing.
+- `concurrency: { group: notimess-tick, cancel-in-progress: false }` so overlapping runs queue instead of clashing if a run ever takes longer than the 5-minute interval.
+- Public repo → GitHub Actions minutes are unlimited on standard runners, so the 5-minute cadence (≈288 runs/day) costs nothing. (This wasn't true while the repo was private — the free tier there is 2,000 min/month, which this cadence would have threatened.)
+- GitHub Actions cron has a documented jitter under load; combined with the "at or after" delivery semantics in §11, a delayed or even occasionally-skipped tick just means slightly late delivery, never a missed day.
 
-  | Meal | IST fire time | UTC cron |
-  |---|---|---|
-  | Breakfast | 07:15 | `45 1 * * *` |
-  | Lunch | 12:00 | `30 6 * * *` |
-  | High Tea | 16:45 | `15 11 * * *` |
-  | Dinner | 19:00 | `30 13 * * *` |
-
-  (IST = UTC+5:30; each row above is IST time minus 5:30.)
-- Also exposes `workflow_dispatch` (manual trigger, with a `meal` input) for on-demand testing.
-- GitHub Actions cron has a documented few-minutes jitter under load — acceptable given the 15-minute lead buffer before the counter actually opens.
-
-### 3.5 Notifier script — `notifier.py`
-Runtime logic, no external LLM/API dependency:
-1. Determine which meal this run is for (passed in by the workflow step — simpler and more robust than inferring "which meal is next" from wall-clock time inside the script).
-2. Look up `data/menus/<file>.json → meals[meal].items[weekday]` for the current `Asia/Kolkata` date.
-3. Format title + body per the spec in `PRD.md` §8.
-4. Load `data/subscribers.json`, loop over chat_ids, call Telegram's `sendMessage` for each.
-5. If the slot's item list is empty or missing, still send a fallback "menu not available" message (FR6) rather than skipping silently.
+### 3.4 Tick script — `tick.py`
+Runtime logic, no external LLM/API dependency. One run does both of:
+1. **Poll for new messages:** call Telegram's `getUpdates` with an `offset` past the last-seen update ID (persisted in `data/subscribers.json` so nothing is double-processed). Route any `/start`, `/stop`, `/settime`, `/mytimes`, `/reset` command to its handler (§11).
+2. **Check and send due notifications:** for every subscriber, for every meal, compare their preferred time (default or custom) against the current `Asia/Kolkata` time; if it's passed and today's notification for that meal hasn't been sent yet, build the message (menu lookup + format per `PRD.md` §8) and send it via `sendMessage`.
+3. If a `sendMessage` call comes back "blocked"/"chat not found," drop that subscriber — no point retrying someone who's blocked the bot.
+4. Save `data/subscribers.json` if anything changed; the workflow step commits it.
 
 Kept to a single file, stdlib + `requests` only — no framework needed for something this small.
 
-### 3.6 Delivery — Telegram Bot API
+### 3.5 Delivery — Telegram Bot API
 - Bot created once via `@BotFather`, token stored as a GitHub Actions secret (`TELEGRAM_BOT_TOKEN`) — never committed to the repo.
 - No account needed on the subscriber's end beyond Telegram itself, which the target audience already has.
 - `chat_id` doubles as both the delivery address and the only "identity" NotiMess ever stores about a subscriber.
@@ -118,7 +96,12 @@ Kept to a single file, stdlib + `requests` only — no framework needed for some
 ```jsonc
 {
   "last_update_id": 123456789,
-  "chat_ids": [111111111, 222222222]
+  "subscribers": {
+    "111111111": {
+      "prefs": { "breakfast": "07:15", "lunch": "12:00", "high_tea": "16:45", "dinner": "19:00" },
+      "last_sent": { "breakfast": "2026-09-18", "lunch": "2026-09-18" }
+    }
+  }
 }
 ```
 
@@ -127,30 +110,32 @@ Design choices:
 - **Meal-major, day-minor** (`meals.lunch.items.Monday`) — matches how the source poster itself is laid out.
 - **One repeating 7-day cycle**, not a calendar of specific dates. If a genuine multi-week rotation is confirmed later (open question in `PRD.md`), a second dated file (`..._week2.json`) is the natural extension.
 - **One file per institution+month** under `data/menus/` — a month-to-month menu change or a future second institution is just "add another file," never a schema change.
-- **Subscribers as a flat array in one file**, not a per-user file or external DB — at hostel scale (hundreds, maybe low thousands of subscribers) a single JSON array committed to git is plenty, and it keeps the "no external services" property intact.
+- **Subscribers as one JSON object in one file**, keyed by `chat_id` (string, since JSON object keys must be strings) — not a per-user file or external DB. At hostel scale (hundreds, maybe low thousands of subscribers) this is plenty, and it keeps the "no external services" property intact.
+- **`prefs` (per-meal preferred time) and `last_sent` (per-meal last-sent date) live together per subscriber** — see §11 for why `last_sent` is needed (it's what makes the "check every 5 min, send once per day" model correct: it's the dedup key that stops a subscriber getting the same meal's notification on every tick after their preferred time has passed).
+- Canonical time strings are always zero-padded 24-hour `HH:MM` (`08:00`, not `8:0` or `8:00`) specifically so they can be **string-compared** directly against `datetime.strftime("%H:%M")` without parsing — one less thing that can go subtly wrong.
 
 ## 5. Menu update workflow (when the poster changes)
 
 1. User photographs the new poster, drops it in the project directory.
 2. User asks Claude (in this project) to re-parse it.
 3. Claude reads the image, updates/adds the file in `data/menus/`.
-4. Commit + push. Next scheduled `notify.yml` run picks up the new data automatically — no script/workflow changes needed for a pure menu content update.
+4. Commit + push. Next tick picks up the new data automatically — no script/workflow changes needed for a pure menu content update.
 
 ## 6. Failure modes & handling
 
 | Failure | Handling |
 |---|---|
-| `notify.yml` run fails (script error, Telegram API down) | GitHub emails the repo owner on workflow failure by default — free monitoring signal. |
-| Telegram Bot API itself is down | Out of scope to mitigate for a free personal/community tool; acceptable occasional miss. |
+| `tick.yml` run fails (script error, Telegram API down) | GitHub emails the repo owner on workflow failure by default — free monitoring signal. |
+| Telegram Bot API itself is down | Out of scope to mitigate for a free personal/community tool; the next successful tick catches anything overdue (§11) — no permanent miss, just delay. |
 | Menu JSON missing/malformed data for a slot | Script sends an explicit "menu not available" message instead of failing silently (FR6). |
-| `poll_subscribers.yml` misses a run (GitHub Actions outage) | Self-healing: the next successful poll picks up everything since `last_update_id` — nothing is lost, just delayed. |
-| Two workflow runs try to commit `data/subscribers.json` at once | Low risk at this scale (~15 min cadence, small polling window); if it ever happens, the losing job's push fails and can just retry against the updated file. |
+| A tick is skipped or delayed (GitHub Actions outage/jitter) | Self-healing by design: `last_sent` means the next tick still sends anything that became due since the last successful run — see §11. |
+| Two tick runs try to commit `data/subscribers.json` at once | Prevented structurally — `concurrency: cancel-in-progress: false` in `tick.yml` means only one run executes at a time; a `git pull --rebase` before push is a cheap extra safety net. |
 | Poster's menu rotates on a cycle we don't know about | Flagged as an open question in `PRD.md`; not solvable until a second week's poster is observed. |
 
 ## 7. Tech stack
 
-- **Language:** Python 3 (stdlib `json`, `datetime`/`zoneinfo`, plus `requests` for HTTP calls to the Telegram Bot API).
-- **Scheduler/runtime:** GitHub Actions (`schedule` + `workflow_dispatch` triggers, two workflows).
+- **Language:** Python 3 (stdlib `json`, `datetime`/`zoneinfo`, `re`, plus `requests` for HTTP calls to the Telegram Bot API).
+- **Scheduler/runtime:** GitHub Actions (`schedule` + `workflow_dispatch` triggers, one workflow).
 - **Delivery:** Telegram Bot API (`sendMessage`, `getUpdates`).
 - **Storage:** two JSON files in the repo (menu data, subscriber list) — no database, no external services.
 
@@ -183,14 +168,22 @@ NotiMess/
 ├── PLAN.md
 ├── menu.jpeg                              # source photo (Week 1, Sept 2026)
 ├── requirements.txt
-├── notifier.py                            # sends the 4x/day meal notifications
-├── poll_subscribers.py                    # polls Telegram, maintains data/subscribers.json
+├── tick.py                                # poll Telegram + send due notifications, one pass
 ├── data/
 │   ├── menus/
 │   │   └── vit_bhopal_mess_menu_september_2026.json
 │   └── subscribers.json
 └── .github/
     └── workflows/
-        ├── notify.yml                     # 4x/day cron → notifier.py
-        └── poll_subscribers.yml           # ~every 15 min → poll_subscribers.py
+        └── tick.yml                       # every 5 min → tick.py
 ```
+
+## 11. Per-subscriber notification time (FR12)
+
+Each subscriber can set their own preferred delivery time per meal instead of a fixed time everyone shares.
+
+- **Commands** (handled in `tick.py`, no website UI involved): `/settime <meal> <HH:MM>`, `/mytimes`, `/reset`. Full spec and copy in `PRD.md` §22.
+- **Storage:** each subscriber's `prefs` dict holds their four meal times (defaulting to the original fixed schedule — §3.3's old times — until customized), and a `last_sent` dict holds the date each meal was last delivered.
+- **Delivery rule, run every tick (~5 min):** for each subscriber × meal, send if `now (HH:MM) >= prefs[meal]` **and** `last_sent[meal] != today's date`; on send, set `last_sent[meal] = today`.
+- **Why "at or after" instead of "at exactly":** trying to match an exact 5-minute tick to an arbitrary user-chosen minute would mean most preferred times get silently missed (e.g. a 5-minute tick grid can't land exactly on `:07`). The "at or after, once per day" rule instead guarantees exactly one send per meal per day, arriving within one tick interval *after* the requested time — never early, never skipped, self-healing if a tick is delayed. The bounded lateness (typically under 5 minutes, occasionally more under GitHub Actions load) was judged an acceptable trade for that guarantee.
+- **Not validated against counter hours:** a subscriber can set a meal's time to something after that counter actually closes. `/settime`'s confirmation reply includes the counter hours as a hint; the system doesn't block the choice.

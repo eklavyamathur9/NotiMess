@@ -1,15 +1,19 @@
-name: Poll Telegram subscribers
+name: NotiMess tick
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 permissions:
   contents: write
 
+concurrency:
+  group: notimess-tick
+  cancel-in-progress: false
+
 jobs:
-  poll:
+  tick:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,17 +24,18 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Poll for new subscribers
+      - name: Poll subscribers + send any due notifications
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        run: python poll_subscribers.py
+        run: python tick.py
 
-      - name: Commit subscriber changes, if any
+      - name: Commit subscriber state, if changed
         run: |
           if ! git diff --quiet -- data/subscribers.json; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add data/subscribers.json
-            git commit -m "chore: update subscriber list"
+            git commit -m "chore: update subscriber state"
+            git pull --rebase origin main
             git push
           fi

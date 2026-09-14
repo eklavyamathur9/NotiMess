@@ -133,6 +133,18 @@ Still informal, but now meaningful: number of active subscribers (chat_ids that 
 ## 21. Future ideas (V2, explicitly out of scope for now)
 
 - Web Push/PWA as an alternative channel for students who don't use Telegram.
-- Per-user preferences (veg-only, mute weekends, choose hostel block) once there's demand — passwordless, keyed on chat_id.
+- Veg-only filtering, mute weekends, choose hostel block — further per-user preferences beyond notification time, once there's demand.
 - Admin web UI for menu updates (with maintainer-only login), replacing the manual Claude re-parse step.
 - Multi-institution support (the `data/menus/` naming already anticipates this).
+
+## 22. FR12 — Per-subscriber notification time
+
+Added after V2 shipped: each subscriber can set their own preferred time per meal instead of everyone getting the same fixed time.
+
+- **Default behaviour unchanged:** anyone who doesn't customize gets the original schedule (15 min before each counter opens — §5).
+- **Customization via bot commands** (no website UI needed for this):
+  - `/settime <breakfast|lunch|high_tea|dinner> <HH:MM>` — set one meal's time, 24-hour IST.
+  - `/mytimes` — show current settings.
+  - `/reset` — revert all four to default.
+- **Delivery semantics: "at or after," not "exactly at."** The system checks every ~5 minutes whether each subscriber's preferred time for each meal has passed today and hasn't been sent yet; if so, it sends. This means actual delivery can lag the exact requested minute by up to ~5–15 minutes (tick interval + occasional GitHub Actions scheduling jitter), but it **never double-sends and never silently skips a day** — even if a tick is delayed or missed entirely, the next one still catches anything overdue. This trade-off (small, bounded lateness vs. guaranteed eventual delivery) was chosen deliberately over trying to hit an exact minute.
+- Not validated against the meal's actual counter hours (a user could set breakfast for 11 AM, after the counter closes) — the `/settime` confirmation reply includes the counter hours as a hint, but doesn't block the choice. It's the user's call.

@@ -13,18 +13,25 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 - ✅ Set up living project context doc → `MEMORY.md`
 - ✅ Decide: Telegram bot for delivery, GitHub Actions for scheduling, no login for subscribers, name NotiMess
 
-## Phase 1 — Telegram bot MVP (current focus)
+## Phase 1 — Telegram bot MVP
 
 Architecture simplified since first drafted — no Vercel/Upstash needed, see `ARCHITECTURE.md` §2. Only two accounts required: GitHub (have it) and Telegram.
 
-- ✅ Code written: `notifier.py`, `poll_subscribers.py`, `.github/workflows/notify.yml`, `.github/workflows/poll_subscribers.yml`, `data/subscribers.json`, `requirements.txt`.
-- ✅ Local folder connected to `github.com/eklavyamathur9/NotiMess` and pushed.
-- ⬜ **User action needed:** create the bot via @BotFather on Telegram (`/newbot`), pick a name/handle, get the bot token.
-- ⬜ **User action needed:** add that token as a GitHub Actions secret named `TELEGRAM_BOT_TOKEN` (exact command given in chat — keeps the token out of the conversation transcript).
+- ✅ Code written and pushed: `tick.py`, `.github/workflows/tick.yml`, `data/subscribers.json`, `requirements.txt`.
+- ✅ Local folder connected to `github.com/eklavyamathur9/NotiMess`, pushed to `main`.
+- ✅ Bot created via @BotFather, token added as the `TELEGRAM_BOT_TOKEN` GitHub Actions secret.
+- ✅ Repo made public (also means the 5-min tick cadence costs nothing in Actions minutes).
 - ⬜ Spot-check `data/menus/vit_bhopal_mess_menu_september_2026.json` against the physical poster once — flagged earlier, still worth a quick pass before real subscribers depend on it.
-- ⬜ Subscribe to your own bot (`/start`), manually trigger `poll_subscribers.yml` via `workflow_dispatch`, confirm your `chat_id` lands in `data/subscribers.json` and you get a welcome reply.
-- ⬜ Manually trigger `notify.yml` via `workflow_dispatch` once per meal type, confirm the message arrives correctly formatted.
-- ⬜ Let both workflows run unattended for one full real day; confirm all 4 scheduled notifications land within ~2 minutes of target time with correct content, and that `/start`/`/stop` get picked up within ~15 minutes.
+- ⬜ Subscribe to your own bot (`/start`), confirm a welcome reply and that your `chat_id` lands in `data/subscribers.json` within one tick (~5 min).
+- ⬜ Try `/settime breakfast 08:00`, `/mytimes`, `/reset` — confirm replies and that `prefs` in `data/subscribers.json` update correctly.
+- ⬜ Let it run unattended for one full real day; confirm each meal notification lands within a few minutes of its (default or custom) preferred time, with correct content.
+
+## Phase 1.5 — Per-subscriber notification time (FR12, done)
+
+- ✅ Redesigned around per-meal, per-subscriber preferred times instead of one fixed time for everyone — see `PRD.md` §22 and `ARCHITECTURE.md` §11 for the full design and the "at or after" delivery guarantee.
+- ✅ Merged the old two-workflow design (`notify.yml` + `poll_subscribers.yml`) into a single `tick.py` / `tick.yml` running every 5 minutes — necessary once delivery time is per-subscriber rather than fixed, and removes a subscriber-list write race as a side benefit.
+- ✅ Unit-tested locally (mocked Telegram calls): due/not-due logic, same-day dedup, `/settime` validation (rejects malformed times, accepts aliases like `hightea`), `/mytimes`, `/reset`, unknown-command help text.
+- ⬜ Real end-to-end verification once subscribed (folded into Phase 1's remaining checklist above).
 
 **Exit criteria:** for one full day, all four meals produce a correct, on-time Telegram notification with no manual intervention — for you as subscriber #1.
 
