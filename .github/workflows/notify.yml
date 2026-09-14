@@ -1,0 +1,65 @@
+name: Send meal notification
+
+on:
+  schedule:
+    - cron: '45 1 * * *'   # 07:15 IST - breakfast
+    - cron: '30 6 * * *'   # 12:00 IST - lunch
+    - cron: '15 11 * * *'  # 16:45 IST - high tea
+    - cron: '30 13 * * *'  # 19:00 IST - dinner
+  workflow_dispatch:
+    inputs:
+      meal:
+        description: 'Meal to send a notification for'
+        required: true
+        type: choice
+        options:
+          - breakfast
+          - lunch
+          - high_tea
+          - dinner
+        default: lunch
+
+permissions:
+  contents: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install -r requirements.txt
+
+      - name: Determine meal for this run
+        id: meal
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "meal=${{ github.event.inputs.meal }}" >> "$GITHUB_OUTPUT"
+          else
+            case "${{ github.event.schedule }}" in
+              '45 1 * * *')  echo "meal=breakfast" >> "$GITHUB_OUTPUT" ;;
+              '30 6 * * *')  echo "meal=lunch" >> "$GITHUB_OUTPUT" ;;
+              '15 11 * * *') echo "meal=high_tea" >> "$GITHUB_OUTPUT" ;;
+              '30 13 * * *') echo "meal=dinner" >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+      - name: Send notification
+        env:
+          MEAL: ${{ steps.meal.outputs.meal }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python notifier.py
+
+      - name: Commit subscriber cleanup, if any
+        run: |
+          if ! git diff --quiet -- data/subscribers.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add data/subscribers.json
+            git commit -m "chore: remove unreachable subscriber(s)"
+            git push
+          fi

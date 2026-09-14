@@ -1,0 +1,36 @@
+name: Poll Telegram subscribers
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install -r requirements.txt
+
+      - name: Poll for new subscribers
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python poll_subscribers.py
+
+      - name: Commit subscriber changes, if any
+        run: |
+          if ! git diff --quiet -- data/subscribers.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add data/subscribers.json
+            git commit -m "chore: update subscriber list"
+            git push
+          fi

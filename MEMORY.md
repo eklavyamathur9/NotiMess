@@ -1,0 +1,51 @@
+# NotiMess — Project Memory
+
+Living context doc for this project. Anyone (human or Claude, in a future session) should be able to read this and get oriented without re-deriving decisions from scratch. Update this whenever a real decision gets made or the project status changes — don't let it go stale.
+
+## Snapshot (as of 2026-09-14)
+
+- Project is in **Phase 0 (docs & data modeling)** — see `PLAN.md` for the full phase breakdown. No code written yet, just documentation and one extracted data file.
+- The only input asset so far is `menu.jpeg`: a photo of the VIT Bhopal Boys & Girls Hostels mess menu poster, September 2026, "Week 1", effective from 14 Sept 2026.
+- That photo has been transcribed into `data/menu.json`. Breakfast and High Tea are high-confidence transcriptions; some Lunch/Dinner cells (esp. Saturday/Sunday) are medium-confidence — see `_extraction_meta` in that file. **Not yet spot-checked against the physical poster.**
+
+## Key decisions & why
+
+- **Name: NotiMess.** User's original name, kept as-is. Alternatives considered (MessPing, PlatePing) were offered but declined.
+- **Notification delivery: ntfy.sh**, not Telegram bot or Pushover.
+  - *Why:* zero account setup on either end (no bot creation, no paid app), fastest path to a working notification. User picked this over the alternatives when asked directly.
+  - *Trade-off accepted:* ntfy.sh's free public server has no built-in access control beyond the topic name being unguessable — acceptable for a menu-content notification (nothing sensitive).
+- **Scheduler: GitHub Actions cron**, not a local always-on device.
+  - *Why:* doesn't depend on the user's own machine being powered on; free; reliable enough for 4 runs/day. User picked this over local cron when asked directly.
+- **No LLM call in the runtime path.** Menu parsing happens once (or whenever the poster changes), interactively with Claude, producing a static JSON file. The 4x/day scheduled job is a plain script with no API dependency.
+  - *Why:* cheaper, faster, and removes a whole class of runtime failure (API errors, cost, latency) from something that just needs to read a JSON file and send an HTTP POST.
+- **Data model: one repeating 7-day cycle**, not a dated calendar or multi-week rotation.
+  - *Why:* that's what the poster actually shows (Mon–Sun, no dates). The poster says "Week 1" which *might* imply a rotation, but we have no Week 2 data to confirm — treated as an open question, not designed around speculatively. See `PRD.md` §11.
+
+## Open questions (unresolved, revisit when info arrives)
+
+- Does the mess actually rotate through multiple weeks, or was "Week 1" a one-off label? Need to see if a "Week 2" poster ever shows up.
+- How often does the menu actually change (monthly, per-semester)? Determines how often the manual re-ingestion workflow gets exercised in practice.
+
+## Known constraints / caveats
+
+- `data/menu.json` was extracted by a vision-model read of a single photo of a physical noticeboard poster — not OCR'd with pixel-level verification. Treat Lunch/Dinner Saturday & Sunday entries as "best effort" until manually spot-checked (this is Phase 1's first task in `PLAN.md`).
+- This is a single-user personal tool. No auth, no multi-tenancy, not designed to scale beyond one person's phone.
+
+## V2 decisions & why (multi-user platform)
+
+- **Scope change:** project is expanding from "notify just me" to "let other people subscribe too" via a website. See `PRD.md` Part 2 and `ARCHITECTURE.md` V2 section for full detail.
+- **No login required to subscribe.** Recommended and adopted: the public subscribe flow has no username/password/account system. Reasoning: there's no private per-user data to protect (menu content is public), login adds signup friction and a security surface for zero benefit at this stage, and the delivery channel itself already provides a lightweight identity (a Telegram `chat_id`) sufficient to deliver and unsubscribe. Revisit only if/when per-user preferences (hostel choice, meal opt-outs) need durable storage — and even then, the plan is a passwordless mechanism (magic link/OTP), not full auth.
+- **Delivery channel for V2: Telegram bot** (recommended over a shared ntfy topic or a Web Push/PWA site). Reasoning: no app-store presence needed, students already have Telegram, free Bot API, chat_id doubles as identity so no separate auth system, backend stays small (one serverless function to capture `/start` + a small store of chat_ids). Shared-ntfy-topic was ruled out for multi-user because a public topic has no spoofing protection (anyone who learns the topic name can publish fake notices to every subscriber). Web Push/PWA was deferred as a future upgrade — more moving parts (VAPID keys, service worker, iOS 16.4+-only support) for marginal gain over Telegram at this stage.
+- **Website's job in V2 is just a landing page** (static, no login) that explains the project and deep-links to "Start the bot" (`t.me/<BotName>`) — not itself the delivery mechanism.
+- **Admin/menu-management is the one place login *does* make sense** — but only a simple gate for the maintainer(s) (e.g. GitHub OAuth or a shared secret), never for end users/subscribers. Not built in V2 MVP; menu updates still go through the existing "re-photograph → Claude re-parses `data/menus/*.json`" workflow from V1.
+
+## Build-order decision (2026-09-14)
+
+- **Skipping a solo-ntfy V1 build.** Since the Telegram bot needs no login and no per-user setup beyond `/start`, the user is simply subscriber #1 of their own bot — no reason to build and later discard an ntfy-only personal path. `PLAN.md` Phase 1 is now "Telegram bot MVP," serving both the original personal-use goal and the multi-user goal at once. The ntfy-vs-Telegram-vs-WebPush comparison already written up in `ARCHITECTURE.md`/`PRD.md` still stands as the recorded reasoning for *why* Telegram won.
+- **WhatsApp priced out for now.** Checked Meta's Cloud API pricing (India, 2026): Utility ~₹0.115/message, Marketing ~₹0.8631/message (7.5x), no free tier for proactive (business-initiated) messages like ours. At 100 subscribers × 4 msgs/day that's roughly ₹1,380–10,360/month depending on Meta's classification of the message (which isn't guaranteed to land in the cheap Utility bucket) — plus business verification overhead. Decision: not worth it for a free side project; revisit only as an optional paid channel if there's real demand later (`PLAN.md` Phase 5).
+- **Website is a landing page only, not the delivery mechanism.** Confirmed: static, no login, no backend — see `PLAN.md` Phase 2 for scope.
+
+## Change log
+
+- **2026-09-14** — Project created. Docs written (`PRD.md`, `ARCHITECTURE.md`, `PLAN.md`, this file). `data/menu.json` extracted from `menu.jpeg`. Decisions locked: name = NotiMess, delivery = ntfy.sh, scheduler = GitHub Actions. Phase 1 (writing `notifier.py` + the GitHub Actions workflow) not yet started.
+- **2026-09-14 (same day, later)** — GitHub repo created at `github.com/eklavyamathur9/NotiMess` (not yet connected/pushed locally). User supplied a more carefully transcribed `vit_bhopal_mess_menu_september_2026.json`, which **supersedes** the earlier `data/menu.json` extraction and corrects several medium-confidence cells that were in fact wrong — notably: Friday lunch's 3rd item is "Drumstick Sambar" (not "Lasuni Dal" as first guessed), Saturday lunch has 10 items including both "Lasuni Dal" *and* "Tomato Rice" plus "Jeera Aloo Dry" (the earlier version dropped one of these), and Sunday lunch includes "Pineapple Halwa" as the sweet (missed earlier). Moved to `data/menus/vit_bhopal_mess_menu_september_2026.json` — the `menus/` directory (plural, filename per institution+month) anticipates V2's multi-source needs. Old `data/menu.json` deleted as superseded. Scope expanded to a multi-user platform (V2) — decisions above.

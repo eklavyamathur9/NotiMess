@@ -1,0 +1,303 @@
+{
+  "institution": "VIT Bhopal",
+  "title": "Boys & Girls Hostels Mess Menu - September 2026",
+  "effective_from": "14th September 2026",
+  "category": "Veg & Non-Veg",
+  "week": 1,
+  "days": [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday"
+  ],
+  "meals": {
+    "breakfast": {
+      "time": "07:30 AM to 09:30 AM",
+      "counter_closing_time": "09:30 AM",
+      "items": {
+        "Monday": [
+          "Idly",
+          "Moong Dhal Sambar",
+          "Peanut Chutney",
+          "Mix Fruits",
+          "Steamed Sprouts Salad",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Tuesday": [
+          "Aloo Parata",
+          "Curd & Pickle",
+          "Vegetable Semiya Upma",
+          "Coconut Chutney",
+          "Banana",
+          "Cucumber Salad",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Wednesday": [
+          "Set Dosa",
+          "Vadakari",
+          "Coconut Chutney",
+          "Mix Fruits",
+          "Boiled Egg (Non-Veg) / Steamed Green Gram Sprouts (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Thursday": [
+          "Wheat Poori",
+          "Channa Masala",
+          "Chilli & Lemon Wedges",
+          "Banana",
+          "Mixed Vegetable Salad",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Friday": [
+          "Vegetable Poha",
+          "Alebi",
+          "Vegetable Rava Kitchadi / Coconut Chutney",
+          "Single Fruit",
+          "Mixed Vegetable Salad",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Saturday": [
+          "Ven Pongal",
+          "Sambar",
+          "Coconut Chutney",
+          "Mix Fruits",
+          "Boiled Egg (Non-Veg) / Steamed Green Gram Sprouts (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Sunday": [
+          "Dosa",
+          "Sambar",
+          "Tomato Garlic Thokku",
+          "Banana",
+          "Steamed Sprouts Salad",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ]
+      }
+    },
+    "lunch": {
+      "time": "12:15 PM to 02:30 PM",
+      "counter_closing_time": "02:30 PM",
+      "items": {
+        "Monday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Dal Fry",
+          "Aloo Gobi Masala Dry",
+          "Sambar",
+          "Beans Patani Poriyal",
+          "Pepper Rasam",
+          "Curd",
+          "Kheer",
+          "Pickle"
+        ],
+        "Tuesday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Rajma Masala",
+          "Aloo Mutter Dry",
+          "Drumstick / Brinjal Kara Kuzhambu",
+          "Mix Vegetable Poriyal",
+          "Lemon Rasam",
+          "Butter Milk",
+          "NA",
+          "Pickle"
+        ],
+        "Wednesday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Gujarat Dal",
+          "Veg Kofta Curry",
+          "Drumstick Sambar",
+          "Cabbage Peas Poriyal",
+          "Pineapple Rasam",
+          "Curd",
+          "Kesari",
+          "Pickle"
+        ],
+        "Thursday": [
+          "Roti (Plain & Butter)",
+          "Jeera Rice & Plain Rice South",
+          "Cholar Dal",
+          "Aloo Posto",
+          "More Kuzambu",
+          "Carrot & Beans / Mutter Poriyal",
+          "Tomato Rasam",
+          "Butter Milk",
+          "NA",
+          "Pickle"
+        ],
+        "Friday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Drumstick Sambar",
+          "Rajastani Kadi (Greens Pakoda)",
+          "Kerala Avial",
+          "Seasonal Vegetable Vepudu (Andhra Style Fry)",
+          "Chettinadu Rasam",
+          "Curd",
+          "Gulab Jamun",
+          "Pickle"
+        ],
+        "Saturday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Lasuni Dal",
+          "Tomato Rice",
+          "Jeera Aloo Dry",
+          "Papad",
+          "Garlic Rasam",
+          "Butter Milk",
+          "NA",
+          "Pickle"
+        ],
+        "Sunday": [
+          "Roti (Plain & Butter)",
+          "Veg Hyderabadi Dum Biryani (Veg) / Chicken Hyderabadi Dum Biryani (Non-Veg)",
+          "Dal Kolhapuri",
+          "Chole Paneer",
+          "Mix Raita",
+          "NA",
+          "NA",
+          "NA",
+          "Pineapple Halwa",
+          "Pickle"
+        ]
+      }
+    },
+    "high_tea": {
+      "time": "05:00 PM to 06:30 PM",
+      "counter_closing_time": "06:30 PM",
+      "items": {
+        "Monday": [
+          "Kala Chana Sundal",
+          "Tea, Coffee, Milk"
+        ],
+        "Tuesday": [
+          "Punugulu + Podi & Aalam (Ginger) Chutney",
+          "Tea, Coffee, Milk"
+        ],
+        "Wednesday": [
+          "Mix Lentil Sundal",
+          "Tea, Coffee, Milk"
+        ],
+        "Thursday": [
+          "Mix Veg Samosa, Green Chutney / Imly Sweet Chutney",
+          "Tea, Coffee, Milk"
+        ],
+        "Friday": [
+          "Channa & Vegetable Sandwich",
+          "Tea, Coffee, Milk"
+        ],
+        "Saturday": [
+          "Daal Kachori + Green Chutney",
+          "Tea, Coffee, Milk"
+        ],
+        "Sunday": [
+          "Vada Pav, Green Chutney",
+          "Tea, Coffee, Milk"
+        ]
+      }
+    },
+    "dinner": {
+      "time": "07:15 PM to 09:15 PM",
+      "counter_closing_time": "09:15 PM",
+      "items": {
+        "Monday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Methi Mutter Malai Paneer Curry (Veg), Egg Curry (Non-Veg)",
+          "Yellow Dhal",
+          "Mix Vegetable Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Tuesday": [
+          "Roti (Plain & Butter)",
+          "Veg Pulao",
+          "Veg Jalfrezi",
+          "Dal Makhani",
+          "Mix Vegetable Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Wednesday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Paneer Chatpata (Veg), Chicken Kosha (Non-Veg)",
+          "Moong Masoor Dal",
+          "Bengali Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Thursday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Navratna Korma (Veg), Egg Masala (Non-Veg)",
+          "Bottle Gourd Paruppu Kootu",
+          "Mix Vegetable Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Friday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Paneer Tikka Masala (Veg), Chicken Tikka Masala (Non-Veg)",
+          "Dal Fry",
+          "Bengali Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Saturday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Aloo Chilly Dry",
+          "Toor Dal Tadka",
+          "Mix Vegetable Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Sunday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Soyachunk Masala",
+          "Dal Tadka",
+          "Bengali Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ]
+      }
+    }
+  },
+  "notes": [
+    "NA means Not Applicable / Not Food Item.",
+    "Eggs - two eggs to be served.",
+    "Toasted bread is to be kept in serving counter for toasting bread.",
+    "Cooked chicken with bone and without gravy serving meat slab - 120 gm.",
+    "Cooked boneless chicken without gravy serving meat slab - 100 gm.",
+    "Cooked mutton - 5 kg fat, 8.5% SNA and 0% added water.",
+    "Tomato milk - 3% fat, 8.5% SNF and 0% added water.",
+    "Curd or added water - 100 to 120 gm per serving.",
+    "Paneer without gravy serving - 80 grams.",
+    "Mix fruit with vegetables must include 3 to 4 vegetables/fruits.",
+    "All added water used in foods must be filtered water.",
+    "For potable water, maintain the temperature at a minimum of 60°C at all times."
+  ],
+  "source_description": "Structured transcription of the front-facing enhanced mess-menu photograph."
+}
