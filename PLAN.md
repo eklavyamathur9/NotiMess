@@ -36,7 +36,7 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 
 **Problem found:** GitHub's `schedule` trigger fired only 3 times in the first ~14 hours instead of the expected ~168 (every 5 min), including a 4+ hour gap that caused a missed breakfast notification and a many-hours-late welcome message. Root cause: GitHub Actions' `schedule` event runs on shared, best-effort infrastructure and is not guaranteed to fire on time — documented GitHub behavior, worse on low-activity/public repos. Full writeup in `ARCHITECTURE.md` §3.3.
 
-**Fix:** an external scheduler (cron-job.org, free) calls GitHub's `workflow_dispatch` REST API every 5 minutes instead — those dispatches aren't subject to the same throttling (confirmed: every manual test during debugging ran within ~15 seconds). `tick.yml`'s own `schedule` trigger stays as a free fallback.
+**Fix:** an external scheduler (cron-job.org, free) calls GitHub's `workflow_dispatch` REST API every 1 minute instead — those dispatches aren't subject to the same throttling (confirmed: every manual test during debugging ran within ~15 seconds). `tick.yml`'s own `schedule` trigger stays as a free fallback. (Interval tightened from an initial 5-min plan to 1 min on 2026-09-15 after `/menu` — an interactive, click-and-wait command, not just a scheduled push — made the lag from a 5-min interval noticeably worse to sit through. cron-job.org's free tier supports down to 1 minute, and Actions minutes are free on this public repo, so there's no real cost to the tighter interval.)
 
 - ✅ Root-caused via GitHub Actions run history/logs and confirmed against GitHub's documented `schedule` behavior.
 - ✅ `tick.yml` already exposes `workflow_dispatch` (no code change needed — it's the same trigger used for manual testing).
@@ -46,8 +46,8 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
   - Method: `POST`
   - Headers: `Authorization: token <the PAT>`, `Accept: application/vnd.github+json`
   - Body: `{"ref": "main"}`
-  - Schedule: every 5 minutes
-- ⬜ Verify: after setup, check `gh run list --repo eklavyamathur9/NotiMess` shows runs roughly every 5 minutes with `event: workflow_dispatch`.
+  - Schedule: every 1 minute
+- ⬜ Verify: after setup, check `gh run list --repo eklavyamathur9/NotiMess` shows runs roughly every 1 minute with `event: workflow_dispatch`.
 
 **Exit criteria:** for one full day, all four meals produce a correct, on-time Telegram notification with no manual intervention — for you as subscriber #1.
 

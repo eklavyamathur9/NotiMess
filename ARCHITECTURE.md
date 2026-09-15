@@ -12,7 +12,7 @@ flowchart LR
         A[Photo of mess<br/>noticeboard poster] -->|Claude reads image,<br/>extracts structured data| B[data/menus/*.json]
     end
 
-    subgraph "Every ~5 min, unattended"
+    subgraph "Every ~1 min, unattended"
         X[cron-job.org] -->|workflow_dispatch API| C[GitHub Actions<br/>tick.yml]
         C --> D[tick.py]
         B --> D
@@ -59,7 +59,7 @@ An earlier draft of this architecture planned a webhook-based design: a serverle
 
 **GitHub's own `schedule` trigger turned out to be unreliable at 5-minute granularity — discovered in production, not anticipated in the original design.** Observed: over the first ~14 hours after this workflow went live, `schedule`-triggered runs fired only 3 times (roughly every 2–3 hours) instead of the expected ~168, including one gap over 4 hours long that spanned a subscriber's breakfast notification time — it was never checked, so it was never sent. This matches GitHub's own documented behavior and widely-reported community experience: scheduled workflows run on shared, best-effort infrastructure, are explicitly *not* guaranteed to fire at the configured time, and are especially prone to multi-hour delays on public repos with low overall activity (GitHub also disables `schedule` entirely after 60 days with zero repo activity, though that wasn't the issue here). By contrast, `workflow_dispatch` runs (triggered manually or via the REST API) are *not* subject to this cron-specific throttling — every manual test during debugging started within ~15 seconds.
 
-**Fix: an external scheduler dispatches the workflow instead of relying on GitHub's internal one.** [cron-job.org](https://cron-job.org) (free, no card required, supports POST + custom headers + 1-minute minimum interval) calls GitHub's `workflow_dispatch` REST API every 5 minutes:
+**Fix: an external scheduler dispatches the workflow instead of relying on GitHub's internal one.** [cron-job.org](https://cron-job.org) (free, no card required, supports POST + custom headers + 1-minute minimum interval) calls GitHub's `workflow_dispatch` REST API every 1 minute — tightened from an initial 5-minute plan once `/menu` (§12) made the interval-bound lag directly noticeable in an interactive, click-and-wait context, not just a scheduled push where a few minutes' lateness barely registers:
 
 ```
 POST https://api.github.com/repos/eklavyamathur9/NotiMess/actions/workflows/tick.yml/dispatches
@@ -129,7 +129,7 @@ Design choices:
 - **One repeating 7-day cycle**, not a calendar of specific dates. If a genuine multi-week rotation is confirmed later (open question in `PRD.md`), a second dated file (`..._week2.json`) is the natural extension.
 - **One file per institution+month** under `data/menus/` — a month-to-month menu change or a future second institution is just "add another file," never a schema change.
 - **Subscribers as one JSON object in one file**, keyed by `chat_id` (string, since JSON object keys must be strings) — not a per-user file or external DB. At hostel scale (hundreds, maybe low thousands of subscribers) this is plenty, and it keeps the subscriber *data* itself free of any external service (cron-job.org, added in §3.3, only ever pings a GitHub API endpoint — it never sees this file).
-- **`prefs` (per-meal preferred time) and `last_sent` (per-meal last-sent date) live together per subscriber** — see §11 for why `last_sent` is needed (it's what makes the "check every 5 min, send once per day" model correct: it's the dedup key that stops a subscriber getting the same meal's notification on every tick after their preferred time has passed).
+- **`prefs` (per-meal preferred time) and `last_sent` (per-meal last-sent date) live together per subscriber** — see §11 for why `last_sent` is needed (it's what makes the "check every tick, send once per day" model correct: it's the dedup key that stops a subscriber getting the same meal's notification on every tick after their preferred time has passed).
 - Canonical time strings are always zero-padded 24-hour `HH:MM` (`08:00`, not `8:0` or `8:00`) specifically so they can be **string-compared** directly against `datetime.strftime("%H:%M")` without parsing — one less thing that can go subtly wrong.
 
 ## 5. Menu update workflow (when the poster changes)
@@ -158,7 +158,7 @@ Design choices:
 - **Scheduler/runtime:** GitHub Actions (`schedule` + `workflow_dispatch` triggers, one workflow).
 - **Delivery:** Telegram Bot API (`sendMessage`, `getUpdates`).
 - **Storage:** two JSON files in the repo (menu data, subscriber list) — no database.
-- **External scheduler:** cron-job.org, free — dispatches `tick.yml` every 5 minutes since GitHub's own `schedule` trigger proved unreliable at that granularity (§3.3). Holds nothing but a narrowly-scoped GitHub PAT; never touches subscriber data directly.
+- **External scheduler:** cron-job.org, free — dispatches `tick.yml` every 1 minute since GitHub's own `schedule` trigger proved unreliable at that granularity (§3.3). Holds nothing but a narrowly-scoped GitHub PAT; never touches subscriber data directly.
 
 ## 8. Delivery channel comparison (recorded reasoning)
 
@@ -195,7 +195,7 @@ NotiMess/
 │   └── subscribers.json
 └── .github/
     └── workflows/
-        └── tick.yml                       # every 5 min → tick.py
+        └── tick.yml                       # every ~1 min (cron-job.org) → tick.py
 ```
 
 ## 11. Per-subscriber notification time (FR12)
@@ -204,8 +204,8 @@ Each subscriber can set their own preferred delivery time per meal instead of a 
 
 - **Commands** (handled in `tick.py`, no website UI involved): `/settime <meal> <HH:MM>`, `/mytimes`, `/reset`. Full spec and copy in `PRD.md` §22.
 - **Storage:** each subscriber's `prefs` dict holds their four meal times (defaulting to the original fixed schedule — §3.3's old times — until customized), and a `last_sent` dict holds the date each meal was last delivered.
-- **Delivery rule, run every tick (~5 min):** for each subscriber × meal, send if `now (HH:MM) >= prefs[meal]` **and** `last_sent[meal] != today's date`; on send, set `last_sent[meal] = today`.
-- **Why "at or after" instead of "at exactly":** trying to match an exact 5-minute tick to an arbitrary user-chosen minute would mean most preferred times get silently missed (e.g. a 5-minute tick grid can't land exactly on `:07`). The "at or after, once per day" rule instead guarantees exactly one send per meal per day, arriving within one tick interval *after* the requested time — never early, never skipped, self-healing if a tick is delayed. The bounded lateness (typically under 5 minutes, occasionally more under GitHub Actions load) was judged an acceptable trade for that guarantee.
+- **Delivery rule, run every tick (~1 min):** for each subscriber × meal, send if `now (HH:MM) >= prefs[meal]` **and** `last_sent[meal] != today's date`; on send, set `last_sent[meal] = today`.
+- **Why "at or after" instead of "at exactly":** trying to match a fixed-interval tick to an arbitrary user-chosen minute would mean most preferred times get silently missed (e.g. a tick grid can't land exactly on `:07`). The "at or after, once per day" rule instead guarantees exactly one send per meal per day, arriving within one tick interval *after* the requested time — never early, never skipped, self-healing if a tick is delayed. The bounded lateness (typically under a couple of minutes at the current 1-min cadence, occasionally more if a dispatch is missed) was judged an acceptable trade for that guarantee.
 - **Not validated against counter hours:** a subscriber can set a meal's time to something after that counter actually closes. `/settime`'s confirmation reply includes the counter hours as a hint; the system doesn't block the choice.
 
 ## 12. On-demand menu (FR13)
