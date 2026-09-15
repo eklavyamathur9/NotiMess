@@ -51,9 +51,19 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 
 **Exit criteria:** for one full day, all four meals produce a correct, on-time Telegram notification with no manual intervention — for you as subscriber #1.
 
+## Phase 1.7 — On-demand menu, `/menu` (FR13, done, 2026-09-15)
+
+- ✅ `determine_target_meal()` + `build_ondemand_message()` added to `tick.py`: returns whichever meal is currently open, or the next one opening today, or tomorrow's breakfast if today's are all over.
+- ✅ `/menu` command wired up, works without requiring `/start` first.
+- ✅ Bot command list registered with Telegram (`setMyCommands`) so `/menu` and the others show up in the native tappable "/" picker — the "click, don't type" affordance that was asked for.
+- ✅ Unit-tested locally: before-breakfast, during-breakfast, between-meals, during-lunch, and after-everything-closes-today (rolls to tomorrow) all verified correct.
+- ⬜ Try it live once cron-job.org (Phase 1.6) is set up and the bot is reliably reachable.
+
 ## Phase 2 — Simple landing website
-Not on the critical path for Phase 1 (the bot works without it) — build once Phase 1 is stable, or in parallel if you'd rather.
-- ⬜ One static page (see chat answer below for exact scope), no backend, no login.
+
+**Status: not started.** Sequencing recommendation (see chat) — finish Phase 1.6 (reliable scheduling) first; a website driving traffic to an unreliable bot would cost more trust than it builds. Once reliable, this is still a nice-to-have for discovery/credibility, not a blocker — a bare `t.me/NotiMessMaster_bot` link already works for onboarding via word of mouth / hostel group chats today.
+
+- ⬜ One static page (see chat answer for exact scope), no backend, no login.
 - ⬜ Host on GitHub Pages (free, already have the repo) — simplest option since there's no server-side logic on this page at all.
 - ⬜ Link the page from the bot's Telegram profile ("about" / bio), and vice versa.
 

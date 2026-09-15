@@ -74,7 +74,7 @@ Combined with the "at or after" delivery semantics in §11, an occasional missed
 
 ### 3.4 Tick script — `tick.py`
 Runtime logic, no external LLM/API dependency. One run does both of:
-1. **Poll for new messages:** call Telegram's `getUpdates` with an `offset` past the last-seen update ID (persisted in `data/subscribers.json` so nothing is double-processed). Route any `/start`, `/stop`, `/settime`, `/mytimes`, `/reset` command to its handler (§11).
+1. **Poll for new messages:** call Telegram's `getUpdates` with an `offset` past the last-seen update ID (persisted in `data/subscribers.json` so nothing is double-processed). Route any `/start`, `/menu`, `/stop`, `/settime`, `/mytimes`, `/reset` command to its handler (§11, §12).
 2. **Check and send due notifications:** for every subscriber, for every meal, compare their preferred time (default or custom) against the current `Asia/Kolkata` time; if it's passed and today's notification for that meal hasn't been sent yet, build the message (menu lookup + format per `PRD.md` §8) and send it via `sendMessage`.
 3. If a `sendMessage` call comes back "blocked"/"chat not found," drop that subscriber — no point retrying someone who's blocked the bot.
 4. Save `data/subscribers.json` if anything changed; the workflow step commits it.
@@ -187,7 +187,6 @@ NotiMess/
 ├── ARCHITECTURE.md
 ├── MEMORY.md
 ├── PLAN.md
-├── menu.jpeg                              # source photo (Week 1, Sept 2026)
 ├── requirements.txt
 ├── tick.py                                # poll Telegram + send due notifications, one pass
 ├── data/
@@ -208,3 +207,11 @@ Each subscriber can set their own preferred delivery time per meal instead of a 
 - **Delivery rule, run every tick (~5 min):** for each subscriber × meal, send if `now (HH:MM) >= prefs[meal]` **and** `last_sent[meal] != today's date`; on send, set `last_sent[meal] = today`.
 - **Why "at or after" instead of "at exactly":** trying to match an exact 5-minute tick to an arbitrary user-chosen minute would mean most preferred times get silently missed (e.g. a 5-minute tick grid can't land exactly on `:07`). The "at or after, once per day" rule instead guarantees exactly one send per meal per day, arriving within one tick interval *after* the requested time — never early, never skipped, self-healing if a tick is delayed. The bounded lateness (typically under 5 minutes, occasionally more under GitHub Actions load) was judged an acceptable trade for that guarantee.
 - **Not validated against counter hours:** a subscriber can set a meal's time to something after that counter actually closes. `/settime`'s confirmation reply includes the counter hours as a hint; the system doesn't block the choice.
+
+## 12. On-demand menu (FR13)
+
+`/menu` answers "what's the food right now" immediately, instead of waiting for a scheduled push — full spec in `PRD.md` §23.
+
+- **`determine_target_meal(menu, now)` in `tick.py`:** parses each meal's counter-hours string (`"07:30 AM to 09:30 AM"`) into start/end times via `datetime.strptime(..., "%I:%M %p")`, then: returns the meal currently open if `now` falls in its window; else the next meal opening later today; else tomorrow's breakfast if every meal today has already closed. Always returns something usable — never "no meal found."
+- **No subscription needed** — reuses the same `menu` already loaded for the tick's other work, doesn't touch `state["subscribers"]` at all.
+- **"Click to run":** the bot's command list is registered with Telegram via `setMyCommands` (called once per tick — cheap, idempotent) so `/menu` appears in the native "/" command picker next to the message box, not just as something a user has to type from memory.

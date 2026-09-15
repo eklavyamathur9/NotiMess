@@ -17,7 +17,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -47,11 +47,21 @@ TIME_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
 HELP_TEXT = (
     "Commands:\n"
     "/start - subscribe (uses default times below)\n"
+    "/menu - get the current or next meal's menu right now\n"
     "/stop - unsubscribe\n"
     "/settime <breakfast|lunch|high_tea|dinner> <HH:MM> - set your own time for a meal\n"
     "/mytimes - show your current times\n"
     "/reset - reset all times back to default"
 )
+
+BOT_COMMANDS = [
+    {"command": "menu", "description": "Get the current or next meal's menu right now"},
+    {"command": "start", "description": "Subscribe to meal notifications"},
+    {"command": "settime", "description": "Set your own time for a meal, e.g. breakfast 08:00"},
+    {"command": "mytimes", "description": "Show your current notification times"},
+    {"command": "reset", "description": "Reset your times back to default"},
+    {"command": "stop", "description": "Unsubscribe"},
+]
 
 
 # ---------- menu ----------
@@ -89,6 +99,54 @@ def build_message(menu: dict, meal: str, today: datetime) -> str:
     body = ", ".join(items) if items else "Menu not available for today — check the noticeboard."
 
     return f"{header}\n\n{body}"
+
+
+def parse_time_range(range_str: str):
+    """'07:30 AM to 09:30 AM' -> (time(7,30), time(9,30))"""
+    start_str, end_str = range_str.split(" to ")
+    start = datetime.strptime(start_str.strip(), "%I:%M %p").time()
+    end = datetime.strptime(end_str.strip(), "%I:%M %p").time()
+    return start, end
+
+
+def determine_target_meal(menu: dict, now: datetime):
+    """Which meal should /menu answer with, right now?
+
+    - If a meal's counter is open right now, that one (status "now").
+    - Else the next meal whose counter opens later today (status "next").
+    - Else (everything today is over) tomorrow's first meal (status "next",
+      target date advanced by one day).
+    """
+    today_slots = []
+    for meal in MEALS:
+        meal_data = menu["meals"].get(meal)
+        if not meal_data or not meal_data.get("time"):
+            continue
+        start, end = parse_time_range(meal_data["time"])
+        start_dt = now.replace(hour=start.hour, minute=start.minute, second=0, microsecond=0)
+        end_dt = now.replace(hour=end.hour, minute=end.minute, second=0, microsecond=0)
+        today_slots.append((meal, start_dt, end_dt))
+
+    for meal, start_dt, end_dt in today_slots:
+        if start_dt <= now <= end_dt:
+            return meal, now, "now"
+
+    upcoming_today = sorted((s for s in today_slots if s[1] > now), key=lambda s: s[1])
+    if upcoming_today:
+        return upcoming_today[0][0], now, "next"
+
+    return MEALS[0], now + timedelta(days=1), "next"  # everything today is over
+
+
+def build_ondemand_message(menu: dict, meal: str, target_dt: datetime, status: str, now: datetime) -> str:
+    base = build_message(menu, meal, target_dt)
+    if status == "now":
+        lead = "\U0001F514 Currently serving"
+    elif target_dt.date() != now.date():
+        lead = "\U0001F514 That's it for today — tomorrow's first meal"
+    else:
+        lead = "\U0001F514 Coming up next"
+    return f"{lead}:\n\n{base}"
 
 
 # ---------- subscriber store ----------
@@ -145,6 +203,11 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
              f"Your times (defaults, IST):\n{times}\n\n"
              "Change any of them, e.g.:\n/settime breakfast 08:00\n\n"
              "/mytimes to see your current settings · /stop to unsubscribe")
+
+    elif cmd == "/menu":
+        now = datetime.now(TIMEZONE)
+        meal, target_dt, status = determine_target_meal(menu, now)
+        send(token, chat_id, build_ondemand_message(menu, meal, target_dt, status, now))
 
     elif cmd == "/stop":
         if key in subs:
@@ -267,6 +330,22 @@ def debug_bot_info(token: str) -> None:
         print(f"debug_bot_info failed: {exc}", file=sys.stderr)
 
 
+def register_commands(token: str) -> None:
+    """Registers the bot's command list with Telegram so it shows up as a
+    tappable menu (the '/' icon next to the message box) -- what makes
+    /menu a click-to-run option instead of something you have to type."""
+    try:
+        result = requests.post(
+            f"https://api.telegram.org/bot{token}/setMyCommands",
+            json={"commands": BOT_COMMANDS},
+            timeout=10,
+        ).json()
+        if not result.get("ok"):
+            print(f"setMyCommands failed: {result}", file=sys.stderr)
+    except requests.RequestException as exc:
+        print(f"register_commands failed: {exc}", file=sys.stderr)
+
+
 def main() -> int:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
@@ -274,6 +353,7 @@ def main() -> int:
         return 1
 
     debug_bot_info(token)
+    register_commands(token)
 
     today = datetime.now(TIMEZONE)
     menu = load_active_menu(today)

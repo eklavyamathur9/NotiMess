@@ -11,8 +11,9 @@ No server to run, no database beyond two JSON files in this repo, no LLM call at
 
 ## Subscribe
 
-Message the bot on Telegram and send `/start`. Commands:
+Message the bot on Telegram. Tap the `/` icon next to the message box for a clickable command list, or type:
 
+- `/menu` — get the current or next meal's menu right now, no subscription needed
 - `/start` — subscribe (default times: Breakfast 07:15, Lunch 12:00, High Tea 16:45, Dinner 19:00 IST)
 - `/settime <breakfast|lunch|high_tea|dinner> <HH:MM>` — set your own time for a meal, e.g. `/settime breakfast 08:00`
 - `/mytimes` — show your current times

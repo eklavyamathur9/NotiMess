@@ -148,3 +148,14 @@ Added after V2 shipped: each subscriber can set their own preferred time per mea
   - `/reset` — revert all four to default.
 - **Delivery semantics: "at or after," not "exactly at."** The system checks every ~5 minutes whether each subscriber's preferred time for each meal has passed today and hasn't been sent yet; if so, it sends. This means actual delivery can lag the exact requested minute by up to ~5–15 minutes (tick interval + occasional GitHub Actions scheduling jitter), but it **never double-sends and never silently skips a day** — even if a tick is delayed or missed entirely, the next one still catches anything overdue. This trade-off (small, bounded lateness vs. guaranteed eventual delivery) was chosen deliberately over trying to hit an exact minute.
 - Not validated against the meal's actual counter hours (a user could set breakfast for 11 AM, after the counter closes) — the `/settime` confirmation reply includes the counter hours as a hint, but doesn't block the choice. It's the user's call.
+
+## 23. FR13 — On-demand menu (`/menu`)
+
+Added 2026-09-15: a way to check the menu right now, on demand, without waiting for a scheduled notification — "click a button, get the menu of whatever meal is next."
+
+- **`/menu` command**, registered with Telegram as a tappable option (the "/" command picker next to the message box) — so it's genuinely click-to-run, not just something you have to remember to type.
+- **No subscription required.** Works for anyone who messages the bot, subscribed or not — lowers the bar for someone to try it before committing to `/start`.
+- **"Whatever meal is next" logic:**
+  - If a meal's counter is open right now, `/menu` returns *that* meal (labeled "Currently serving").
+  - Otherwise, the next meal whose counter opens later today (labeled "Coming up next").
+  - If every meal for today is already over, tomorrow's breakfast (labeled "That's it for today — tomorrow's first meal") — so it never returns nothing or an error, always a useful answer.
