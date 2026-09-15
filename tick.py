@@ -48,6 +48,8 @@ HELP_TEXT = (
     "Commands:\n"
     "/start - subscribe (uses default times below)\n"
     "/menu - get the current or next meal's menu right now\n"
+    "/full - get today's full menu, all four meals\n"
+    "/vegonly - toggle hiding non-veg items\n"
     "/stop - unsubscribe\n"
     "/settime <breakfast|lunch|high_tea|dinner> <HH:MM> - set your own time for a meal\n"
     "/mytimes - show your current times\n"
@@ -56,6 +58,8 @@ HELP_TEXT = (
 
 BOT_COMMANDS = [
     {"command": "menu", "description": "Get the current or next meal's menu right now"},
+    {"command": "full", "description": "Get today's full menu, all four meals"},
+    {"command": "vegonly", "description": "Toggle hiding non-veg items"},
     {"command": "start", "description": "Subscribe to meal notifications"},
     {"command": "settime", "description": "Set your own time for a meal, e.g. breakfast 08:00"},
     {"command": "mytimes", "description": "Show your current notification times"},
@@ -87,7 +91,22 @@ def load_active_menu(today: datetime) -> dict:
     return candidates[-1][1]
 
 
-def build_message(menu: dict, meal: str, today: datetime) -> str:
+def strip_nonveg(item: str) -> str:
+    """'Paneer Chatpata (Veg), Chicken Kosha (Non-Veg)' -> 'Paneer Chatpata'
+    Handles both orderings (veg-first and non-veg-first) and either
+    separator (' / ' or ', ') found in the menu data. Items with no
+    (Non-Veg) marker at all (the common case) pass through unchanged."""
+    if "(Non-Veg)" not in item:
+        return item
+    for sep in (" / ", ", "):
+        if sep in item:
+            for part in item.split(sep, 1):
+                if "(Veg)" in part and "(Non-Veg)" not in part:
+                    return part.replace("(Veg)", "").strip()
+    return item  # unexpected shape -- leave as-is rather than guess wrong
+
+
+def build_message(menu: dict, meal: str, today: datetime, veg_only: bool = False) -> str:
     emoji, label = MEAL_DISPLAY[meal]
     meal_data = menu["meals"].get(meal)
     weekday = today.strftime("%A")
@@ -96,6 +115,8 @@ def build_message(menu: dict, meal: str, today: datetime) -> str:
 
     items = (meal_data or {}).get("items", {}).get(weekday, [])
     items = [i for i in items if i and i.upper() != "NA"]
+    if veg_only:
+        items = [strip_nonveg(i) for i in items]
     body = ", ".join(items) if items else "Menu not available for today — check the noticeboard."
 
     return f"{header}\n\n{body}"
@@ -138,8 +159,8 @@ def determine_target_meal(menu: dict, now: datetime):
     return MEALS[0], now + timedelta(days=1), "next"  # everything today is over
 
 
-def build_ondemand_message(menu: dict, meal: str, target_dt: datetime, status: str, now: datetime) -> str:
-    base = build_message(menu, meal, target_dt)
+def build_ondemand_message(menu: dict, meal: str, target_dt: datetime, status: str, now: datetime, veg_only: bool = False) -> str:
+    base = build_message(menu, meal, target_dt, veg_only)
     if status == "now":
         lead = "\U0001F514 Currently serving"
     elif target_dt.date() != now.date():
@@ -194,7 +215,7 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
 
     if cmd == "/start":
         if key not in subs:
-            subs[key] = {"prefs": dict(DEFAULT_PREFS), "last_sent": {}}
+            subs[key] = {"prefs": dict(DEFAULT_PREFS), "last_sent": {}, "veg_only": False}
         prefs = subs[key]["prefs"]
         times = "\n".join(f"{MEAL_DISPLAY[m][0]} {MEAL_DISPLAY[m][1]}: {prefs[m]}" for m in MEALS)
         send(token, chat_id,
@@ -202,12 +223,31 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
              "You're subscribed to VIT Bhopal hostel mess menu notifications.\n\n"
              f"Your times (defaults, IST):\n{times}\n\n"
              "Change any of them, e.g.:\n/settime breakfast 08:00\n\n"
+             "/vegonly to hide non-veg items · /full for today's whole menu\n"
              "/mytimes to see your current settings · /stop to unsubscribe")
 
     elif cmd == "/menu":
         now = datetime.now(TIMEZONE)
+        veg_only = subs.get(key, {}).get("veg_only", False)
         meal, target_dt, status = determine_target_meal(menu, now)
-        send(token, chat_id, build_ondemand_message(menu, meal, target_dt, status, now))
+        send(token, chat_id, build_ondemand_message(menu, meal, target_dt, status, now, veg_only))
+
+    elif cmd == "/full":
+        now = datetime.now(TIMEZONE)
+        veg_only = subs.get(key, {}).get("veg_only", False)
+        weekday = now.strftime("%A")
+        sections = [build_message(menu, m, now, veg_only) for m in MEALS]
+        send(token, chat_id, f"\U0001F4C5 Today's full menu ({weekday}):\n\n" + "\n\n———\n\n".join(sections))
+
+    elif cmd == "/vegonly":
+        if key not in subs:
+            send(token, chat_id, "You're not subscribed yet — send /start first.")
+            return
+        subs[key]["veg_only"] = not subs[key].get("veg_only", False)
+        if subs[key]["veg_only"]:
+            send(token, chat_id, "\U0001F331 Veg-only mode is now ON — non-veg items will be hidden from your menus.")
+        else:
+            send(token, chat_id, "Veg-only mode is now OFF — you'll see everything again.")
 
     elif cmd == "/stop":
         if key in subs:
@@ -241,7 +281,8 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
             return
         prefs = subs[key]["prefs"]
         lines = "\n".join(f"{MEAL_DISPLAY[m][0]} {MEAL_DISPLAY[m][1]}: {prefs.get(m, DEFAULT_PREFS[m])}" for m in MEALS)
-        send(token, chat_id, f"Your notification times (IST):\n\n{lines}")
+        veg_state = "ON" if subs[key].get("veg_only", False) else "OFF"
+        send(token, chat_id, f"Your notification times (IST):\n\n{lines}\n\nVeg-only mode: {veg_state}")
 
     elif cmd == "/reset":
         if key in subs:
@@ -292,6 +333,7 @@ def send_due_notifications(state: dict, token: str, menu: dict, today: datetime)
 
     for chat_id_str, sub in state["subscribers"].items():
         prefs = sub.get("prefs", DEFAULT_PREFS)
+        veg_only = sub.get("veg_only", False)
         last_sent = sub.setdefault("last_sent", {})
         for meal in MEALS:
             preferred = prefs.get(meal, DEFAULT_PREFS[meal])
@@ -300,7 +342,7 @@ def send_due_notifications(state: dict, token: str, menu: dict, today: datetime)
             if now_str < preferred:
                 continue  # not due yet
 
-            message = build_message(menu, meal, today)
+            message = build_message(menu, meal, today, veg_only)
             result = send(token, int(chat_id_str), message)
             if result.get("ok"):
                 last_sent[meal] = today_str
