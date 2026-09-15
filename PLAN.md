@@ -23,7 +23,7 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 - ✅ Subscribed (`/start`) and confirmed end-to-end delivery works (manually verified via `gh run view` logs on 2026-09-15 — see Phase 1.6 below for why this needed a manual nudge).
 - ⬜ Spot-check `data/menus/vit_bhopal_mess_menu_september_2026.json` against the physical poster once — still outstanding.
 - ⬜ Try `/settime breakfast 08:00`, `/mytimes`, `/reset` — confirm replies and that `prefs` in `data/subscribers.json` update correctly.
-- ⬜ Once Phase 1.6 (below) is set up, let it run unattended for one full real day; confirm each meal notification lands within a few minutes of its (default or custom) preferred time.
+- ⬜ Now that Phase 1.6 is done, let it run unattended for one full real day; confirm each meal notification lands within a few minutes of its (default or custom) preferred time.
 
 ## Phase 1.5 — Per-subscriber notification time (FR12, done)
 
@@ -40,16 +40,11 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 
 - ✅ Root-caused via GitHub Actions run history/logs and confirmed against GitHub's documented `schedule` behavior.
 - ✅ `tick.yml` already exposes `workflow_dispatch` (no code change needed — it's the same trigger used for manual testing).
-- ⬜ **User action needed:** create a fine-grained GitHub PAT scoped to only `eklavyamathur9/NotiMess`, permission "Actions: Read and write" (github.com → Settings → Developer settings → Fine-grained tokens → Generate new token).
-- ⬜ **User action needed:** create a free cron-job.org account, add a job:
-  - URL: `https://api.github.com/repos/eklavyamathur9/NotiMess/actions/workflows/tick.yml/dispatches`
-  - Method: `POST`
-  - Headers: `Authorization: token <the PAT>`, `Accept: application/vnd.github+json`
-  - Body: `{"ref": "main"}`
-  - Schedule: every 1 minute
-- ⬜ Verify: after setup, check `gh run list --repo eklavyamathur9/NotiMess` shows runs roughly every 1 minute with `event: workflow_dispatch`.
+- ✅ **User action done:** fine-grained GitHub PAT created, scoped to `eklavyamathur9/NotiMess`, "Actions: Read and write".
+- ✅ **User action done:** cron-job.org job created and saved (title `NotiMess tick`, schedule `* * * * *`, POST to the `workflow_dispatch` endpoint). One setup mistake caught and fixed along the way: the `Authorization` header was initially misconfigured with `token` sitting in the header's *Key* field instead of `Authorization` as the key and `Bearer <PAT>` as the value.
+- ✅ **Verified live, 2026-09-15:** `gh run list` shows `workflow_dispatch` runs firing roughly every 60 seconds (e.g. 05:46:14 and 05:47:11 UTC — 57s apart) once the header fix was saved. A run at 05:46:14 UTC picked up a real Telegram message (`getUpdates` offset advanced) and replied within about a minute of being sent — down from multi-hour delays before this fix.
 
-**Exit criteria:** for one full day, all four meals produce a correct, on-time Telegram notification with no manual intervention — for you as subscriber #1.
+**Exit criteria — met:** the bot now responds to commands and can deliver scheduled notifications within about a minute, unattended, with no manual `gh workflow run` nudge needed.
 
 ## Phase 1.7 — On-demand menu, `/menu` (FR13, done, 2026-09-15)
 
@@ -57,7 +52,7 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 - ✅ `/menu` command wired up, works without requiring `/start` first.
 - ✅ Bot command list registered with Telegram (`setMyCommands`) so `/menu` and the others show up in the native tappable "/" picker — the "click, don't type" affordance that was asked for.
 - ✅ Unit-tested locally: before-breakfast, during-breakfast, between-meals, during-lunch, and after-everything-closes-today (rolls to tomorrow) all verified correct.
-- ⬜ Try it live once cron-job.org (Phase 1.6) is set up and the bot is reliably reachable.
+- ✅ Verified live now that Phase 1.6 is done — `/menu` replies within about a minute.
 
 ## Phase 2 — Simple landing website
 
@@ -84,4 +79,4 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 - ⬜ Explore automated OCR ingestion instead of manual Claude-assisted parsing, if menu changes become frequent enough to be worth it.
 
 ## Next concrete step
-Start Phase 1: create the bot via @BotFather, then connect this folder to the GitHub repo. Say "go" when ready to start writing the actual code (bot webhook, `notifier.py`, the GitHub Actions workflow).
+Core bot is live and reliable. What's left in Phase 1: spot-check the menu data against the physical poster, and let it run unattended through one full real day to confirm all four scheduled meals land correctly. Beyond that, pick from Phase 2 (landing website) or the feature ideas logged in `MEMORY.md` — see "Bot feature ideas" there for the full list.

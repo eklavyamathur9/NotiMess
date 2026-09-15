@@ -29,4 +29,4 @@ Message the bot on Telegram. Tap the `/` icon next to the message box for a clic
 
 ## Status
 
-Bot is live (`@NotiMessMaster_bot`) and confirmed working end-to-end. One setup step still outstanding: GitHub's own scheduler proved unreliable at 5-minute granularity in production (see `ARCHITECTURE.md` §3.3), so an external cron (cron-job.org) needs to be pointed at the workflow — see `PLAN.md` Phase 1.6. Landing website not started yet (Phase 2).
+Bot is live (`@NotiMessMaster_bot`), reliable, and confirmed working end-to-end — including `/menu` replying within about a minute. GitHub's own scheduler proved unreliable in production (see `ARCHITECTURE.md` §3.3); an external cron (cron-job.org, every 1 min) now dispatches the workflow instead, verified via real run timestamps. Still open: a spot-check of the menu data against the physical poster, and a full unattended day of scheduled notifications. Landing website not started yet (Phase 2) — see `MEMORY.md` for a list of other bot feature ideas under consideration.
