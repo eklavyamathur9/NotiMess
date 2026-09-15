@@ -2,6 +2,12 @@ name: NotiMess tick
 
 on:
   schedule:
+    # Best-effort only -- GitHub throttles/delays `schedule` heavily on
+    # low-activity repos (observed: 3 runs in ~14h instead of ~168, with a
+    # 4+ hour gap that caused a missed breakfast notification). The real
+    # trigger is an external cron (cron-job.org) calling the
+    # workflow_dispatch REST API below every 5 minutes -- see ARCHITECTURE.md
+    # §3.3. This schedule stays only as a free redundant fallback.
     - cron: '*/5 * * * *'
   workflow_dispatch: {}
 

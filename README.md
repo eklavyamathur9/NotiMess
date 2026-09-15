@@ -28,4 +28,4 @@ Message the bot on Telegram and send `/start`. Commands:
 
 ## Status
 
-Phase 1 (Telegram bot MVP) code is written. Still needed before it's live: create the bot via @BotFather and add its token as a GitHub Actions secret — see `PLAN.md`.
+Bot is live (`@NotiMessMaster_bot`) and confirmed working end-to-end. One setup step still outstanding: GitHub's own scheduler proved unreliable at 5-minute granularity in production (see `ARCHITECTURE.md` §3.3), so an external cron (cron-job.org) needs to be pointed at the workflow — see `PLAN.md` Phase 1.6. Landing website not started yet (Phase 2).

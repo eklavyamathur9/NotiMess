@@ -13,7 +13,8 @@ flowchart LR
     end
 
     subgraph "Every ~5 min, unattended"
-        C[GitHub Actions<br/>tick.yml] --> D[tick.py]
+        X[cron-job.org] -->|workflow_dispatch API| C[GitHub Actions<br/>tick.yml]
+        C --> D[tick.py]
         B --> D
         D <-->|getUpdates / sendMessage| TG[Telegram Bot API]
         D -->|read + write,<br/>commit if changed| S[data/subscribers.json]
@@ -22,17 +23,18 @@ flowchart LR
     TG -->|push, per subscriber's<br/>own preferred time| U[Student's phone]
 ```
 
-## 2. Why no external services beyond GitHub + Telegram
+## 2. Why so few external services
 
 An earlier draft of this architecture planned a webhook-based design: a serverless function (Vercel/Cloudflare) receiving Telegram's `/start` events in real time, backed by a key-value store (Upstash Redis) for the subscriber list. That works, but it means creating and maintaining two more third-party accounts for what is, functionally, a list of chat IDs.
 
-**Simplification adopted:** Telegram's Bot API supports *polling* (`getUpdates`) as well as webhooks — a client can just ask "any new messages since last time?" instead of needing a public HTTPS endpoint to receive pushes. So instead of a webhook function + Redis, GitHub Actions polls on a schedule, and the subscriber list is a JSON file **committed to the repo itself**, exactly like the menu data. This means:
+**Simplification adopted:** Telegram's Bot API supports *polling* (`getUpdates`) as well as webhooks — a client can just ask "any new messages since last time?" instead of needing a public HTTPS endpoint to receive pushes. So instead of a webhook function + Redis, GitHub Actions polls, and the subscriber list is a JSON file **committed to the repo itself**, exactly like the menu data. This means:
 
-- Only two accounts needed, total: GitHub (already have) and Telegram (bot via @BotFather).
 - No new hosting platform, no database service, no secrets to manage outside GitHub Actions secrets.
 - The tick workflow commits to the repo only on runs where something actually changed (a new subscriber, a preference change, a notification sent), which is a little unconventional but keeps everything in one place and auditable via git history.
 
-**Further simplification (added with per-subscriber notification times, §11):** originally this was two separate workflows — a 4x/day `notify.yml` sending at fixed times, and a ~15-min `poll_subscribers.yml` capturing `/start`/`/stop`. Once each subscriber can pick their *own* time per meal, "send at a fixed time" no longer makes sense — the system instead needs to check frequently whether *anyone's* preferred time has just passed. That check has to run often anyway, so polling for new Telegram messages was folded into the same run: **one script (`tick.py`), one workflow (`tick.yml`), every ~5 minutes.** This also removes a subtle risk the two-workflow design had — two independently-scheduled jobs writing to the same `data/subscribers.json` — since there's now only ever one writer.
+**Further simplification (added with per-subscriber notification times, §11):** originally this was two separate workflows — a 4x/day `notify.yml` sending at fixed times, and a ~15-min `poll_subscribers.yml` capturing `/start`/`/stop`. Once each subscriber can pick their *own* time per meal, "send at a fixed time" no longer makes sense — the system instead needs to check frequently whether *anyone's* preferred time has just passed. That check has to run often anyway, so polling for new Telegram messages was folded into the same run: **one script (`tick.py`), one workflow (`tick.yml`).** This also removes a subtle risk the two-workflow design had — two independently-scheduled jobs writing to the same `data/subscribers.json` — since there's now only ever one writer.
+
+**Third account added after all, and why (§3.3):** the plan through this point was "only GitHub + Telegram, ever." In production, GitHub's own `schedule` trigger turned out to be too unreliable at 5-minute granularity to actually deliver on that — see §3.3 for what was observed and why. The fix needs *something* outside GitHub to reliably poke the workflow on time, since the unreliable part is GitHub's own scheduler. cron-job.org was picked as the smallest possible version of that: no code, no cloud infrastructure, just a dashboard config calling one REST endpoint. It's a real third account, kept deliberately thin — it only ever dispatches the existing workflow, never touches subscriber data or the Telegram token directly (the PAT it holds is scoped to nothing but "trigger this one workflow").
 
 ## 3. Components
 
@@ -43,16 +45,32 @@ An earlier draft of this architecture planned a webhook-based design: a serverle
 - The current file was corrected once already (see `MEMORY.md` change log, 2026-09-14) after a user-supplied re-transcription fixed several cells an earlier automated pass got wrong — a concrete reminder that a fresh poster photo should always be spot-checked, not just trusted from a single vision pass.
 
 ### 3.2 Subscriber store — `data/subscribers.json`
-- Flat JSON array of Telegram `chat_id`s (numbers). Grows to `[{"chat_id": ..., "joined_at": ...}]` if/when per-subscriber preferences are ever added — not needed yet.
-- Owned exclusively by `poll_subscribers.py` (below) — `notifier.py` only ever reads it.
-- Committed to the repo by the poll workflow using the built-in `GITHUB_TOKEN` (no extra credential needed).
+- JSON object keyed by `chat_id` (string), each holding `prefs` (per-meal preferred time) and `last_sent` (per-meal last-sent date) — see §4 for the exact shape.
+- Owned exclusively by `tick.py` — the only script that reads or writes it.
+- Committed to the repo by the tick workflow using the built-in `GITHUB_TOKEN` (no extra credential needed).
+- **Deliberately public**, along with the rest of the repo (decision confirmed 2026-09-15 — see `MEMORY.md`). The only field this ever stores per subscriber is the bare numeric `chat_id`: no name, username, or phone number is captured from Telegram's message payload. That's real but bounded exposure — a permanent, public list of "these Telegram accounts use NotiMess and prefer their notifications at these times." Judged acceptable for a free hostel tool; the alternative (a second private repo + access token) was considered and explicitly declined in favor of staying simple.
 
-### 3.3 Scheduler — GitHub Actions (`.github/workflows/tick.yml`)
+### 3.3 Scheduler — GitHub Actions (`.github/workflows/tick.yml`), triggered externally
+
 - Chosen over local cron because it doesn't depend on any personal device being powered on (reliability requirement).
-- Single `schedule` cron, `*/5 * * * *` (every 5 minutes), plus `workflow_dispatch` for manual testing.
-- `concurrency: { group: notimess-tick, cancel-in-progress: false }` so overlapping runs queue instead of clashing if a run ever takes longer than the 5-minute interval.
-- Public repo → GitHub Actions minutes are unlimited on standard runners, so the 5-minute cadence (≈288 runs/day) costs nothing. (This wasn't true while the repo was private — the free tier there is 2,000 min/month, which this cadence would have threatened.)
-- GitHub Actions cron has a documented jitter under load; combined with the "at or after" delivery semantics in §11, a delayed or even occasionally-skipped tick just means slightly late delivery, never a missed day.
+- `workflow_dispatch` is the trigger that actually matters in practice — see below. `schedule: '*/5 * * * *'` is kept only as a free, best-effort fallback.
+- `concurrency: { group: notimess-tick, cancel-in-progress: false }` so overlapping runs queue instead of clashing if a run ever takes longer than the interval between triggers.
+- Public repo → GitHub Actions minutes are unlimited on standard runners, so frequent runs cost nothing regardless of how they're triggered.
+
+**GitHub's own `schedule` trigger turned out to be unreliable at 5-minute granularity — discovered in production, not anticipated in the original design.** Observed: over the first ~14 hours after this workflow went live, `schedule`-triggered runs fired only 3 times (roughly every 2–3 hours) instead of the expected ~168, including one gap over 4 hours long that spanned a subscriber's breakfast notification time — it was never checked, so it was never sent. This matches GitHub's own documented behavior and widely-reported community experience: scheduled workflows run on shared, best-effort infrastructure, are explicitly *not* guaranteed to fire at the configured time, and are especially prone to multi-hour delays on public repos with low overall activity (GitHub also disables `schedule` entirely after 60 days with zero repo activity, though that wasn't the issue here). By contrast, `workflow_dispatch` runs (triggered manually or via the REST API) are *not* subject to this cron-specific throttling — every manual test during debugging started within ~15 seconds.
+
+**Fix: an external scheduler dispatches the workflow instead of relying on GitHub's internal one.** [cron-job.org](https://cron-job.org) (free, no card required, supports POST + custom headers + 1-minute minimum interval) calls GitHub's `workflow_dispatch` REST API every 5 minutes:
+
+```
+POST https://api.github.com/repos/eklavyamathur9/NotiMess/actions/workflows/tick.yml/dispatches
+Headers: Authorization: token <fine-grained PAT, Actions: write only on this repo>
+         Accept: application/vnd.github+json
+Body:    {"ref": "main"}
+```
+
+This is the same approach GitHub's own community discussions recommend for anything needing real timing precision (also cited: AWS EventBridge Scheduler, Cloudflare Workers Cron Triggers — cron-job.org was chosen over both for needing zero code and zero cloud account beyond GitHub + Telegram). See `PLAN.md` for the setup steps (a one-time GitHub PAT + a five-minute cron-job.org dashboard config, both manual steps only the repo owner can do).
+
+Combined with the "at or after" delivery semantics in §11, an occasional missed or delayed dispatch (from either trigger) still self-heals on the next successful run — nothing is silently skipped, only delayed.
 
 ### 3.4 Tick script — `tick.py`
 Runtime logic, no external LLM/API dependency. One run does both of:
@@ -110,7 +128,7 @@ Design choices:
 - **Meal-major, day-minor** (`meals.lunch.items.Monday`) — matches how the source poster itself is laid out.
 - **One repeating 7-day cycle**, not a calendar of specific dates. If a genuine multi-week rotation is confirmed later (open question in `PRD.md`), a second dated file (`..._week2.json`) is the natural extension.
 - **One file per institution+month** under `data/menus/` — a month-to-month menu change or a future second institution is just "add another file," never a schema change.
-- **Subscribers as one JSON object in one file**, keyed by `chat_id` (string, since JSON object keys must be strings) — not a per-user file or external DB. At hostel scale (hundreds, maybe low thousands of subscribers) this is plenty, and it keeps the "no external services" property intact.
+- **Subscribers as one JSON object in one file**, keyed by `chat_id` (string, since JSON object keys must be strings) — not a per-user file or external DB. At hostel scale (hundreds, maybe low thousands of subscribers) this is plenty, and it keeps the subscriber *data* itself free of any external service (cron-job.org, added in §3.3, only ever pings a GitHub API endpoint — it never sees this file).
 - **`prefs` (per-meal preferred time) and `last_sent` (per-meal last-sent date) live together per subscriber** — see §11 for why `last_sent` is needed (it's what makes the "check every 5 min, send once per day" model correct: it's the dedup key that stops a subscriber getting the same meal's notification on every tick after their preferred time has passed).
 - Canonical time strings are always zero-padded 24-hour `HH:MM` (`08:00`, not `8:0` or `8:00`) specifically so they can be **string-compared** directly against `datetime.strftime("%H:%M")` without parsing — one less thing that can go subtly wrong.
 
@@ -129,6 +147,8 @@ Design choices:
 | Telegram Bot API itself is down | Out of scope to mitigate for a free personal/community tool; the next successful tick catches anything overdue (§11) — no permanent miss, just delay. |
 | Menu JSON missing/malformed data for a slot | Script sends an explicit "menu not available" message instead of failing silently (FR6). |
 | A tick is skipped or delayed (GitHub Actions outage/jitter) | Self-healing by design: `last_sent` means the next tick still sends anything that became due since the last successful run — see §11. |
+| GitHub's `schedule` trigger itself is unreliable at 5-min granularity | **Happened in production** (§3.3) — a 4+ hour gap caused a missed breakfast notification. Fixed by moving the real trigger to cron-job.org calling `workflow_dispatch` externally; `schedule` stays as a free fallback. |
+| cron-job.org has an outage or its job silently stops | The `schedule` fallback in `tick.yml` still fires occasionally (best-effort); beyond that, out of scope to mitigate further for a free tool — the same self-healing "at or after" semantics mean a subscriber just gets a late notification once service resumes, not a permanently missed one. |
 | Two tick runs try to commit `data/subscribers.json` at once | Prevented structurally — `concurrency: cancel-in-progress: false` in `tick.yml` means only one run executes at a time; a `git pull --rebase` before push is a cheap extra safety net. |
 | Poster's menu rotates on a cycle we don't know about | Flagged as an open question in `PRD.md`; not solvable until a second week's poster is observed. |
 
@@ -137,7 +157,8 @@ Design choices:
 - **Language:** Python 3 (stdlib `json`, `datetime`/`zoneinfo`, `re`, plus `requests` for HTTP calls to the Telegram Bot API).
 - **Scheduler/runtime:** GitHub Actions (`schedule` + `workflow_dispatch` triggers, one workflow).
 - **Delivery:** Telegram Bot API (`sendMessage`, `getUpdates`).
-- **Storage:** two JSON files in the repo (menu data, subscriber list) — no database, no external services.
+- **Storage:** two JSON files in the repo (menu data, subscriber list) — no database.
+- **External scheduler:** cron-job.org, free — dispatches `tick.yml` every 5 minutes since GitHub's own `schedule` trigger proved unreliable at that granularity (§3.3). Holds nothing but a narrowly-scoped GitHub PAT; never touches subscriber data directly.
 
 ## 8. Delivery channel comparison (recorded reasoning)
 

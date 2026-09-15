@@ -15,23 +15,39 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 
 ## Phase 1 — Telegram bot MVP
 
-Architecture simplified since first drafted — no Vercel/Upstash needed, see `ARCHITECTURE.md` §2. Only two accounts required: GitHub (have it) and Telegram.
-
 - ✅ Code written and pushed: `tick.py`, `.github/workflows/tick.yml`, `data/subscribers.json`, `requirements.txt`.
 - ✅ Local folder connected to `github.com/eklavyamathur9/NotiMess`, pushed to `main`.
-- ✅ Bot created via @BotFather, token added as the `TELEGRAM_BOT_TOKEN` GitHub Actions secret.
-- ✅ Repo made public (also means the 5-min tick cadence costs nothing in Actions minutes).
-- ⬜ Spot-check `data/menus/vit_bhopal_mess_menu_september_2026.json` against the physical poster once — flagged earlier, still worth a quick pass before real subscribers depend on it.
-- ⬜ Subscribe to your own bot (`/start`), confirm a welcome reply and that your `chat_id` lands in `data/subscribers.json` within one tick (~5 min).
+- ✅ Bot created via @BotFather (`@NotiMessMaster_bot`), token added as the `TELEGRAM_BOT_TOKEN` GitHub Actions secret.
+- ✅ Repo made public.
+- ✅ **Privacy decision (2026-09-15):** subscriber data (`data/subscribers.json`) stays in the public repo as-is — considered and explicitly declined moving it to a private data repo. It only ever stores bare `chat_id`s, no names/usernames/phone numbers. See `MEMORY.md`.
+- ✅ Subscribed (`/start`) and confirmed end-to-end delivery works (manually verified via `gh run view` logs on 2026-09-15 — see Phase 1.6 below for why this needed a manual nudge).
+- ⬜ Spot-check `data/menus/vit_bhopal_mess_menu_september_2026.json` against the physical poster once — still outstanding.
 - ⬜ Try `/settime breakfast 08:00`, `/mytimes`, `/reset` — confirm replies and that `prefs` in `data/subscribers.json` update correctly.
-- ⬜ Let it run unattended for one full real day; confirm each meal notification lands within a few minutes of its (default or custom) preferred time, with correct content.
+- ⬜ Once Phase 1.6 (below) is set up, let it run unattended for one full real day; confirm each meal notification lands within a few minutes of its (default or custom) preferred time.
 
 ## Phase 1.5 — Per-subscriber notification time (FR12, done)
 
 - ✅ Redesigned around per-meal, per-subscriber preferred times instead of one fixed time for everyone — see `PRD.md` §22 and `ARCHITECTURE.md` §11 for the full design and the "at or after" delivery guarantee.
-- ✅ Merged the old two-workflow design (`notify.yml` + `poll_subscribers.yml`) into a single `tick.py` / `tick.yml` running every 5 minutes — necessary once delivery time is per-subscriber rather than fixed, and removes a subscriber-list write race as a side benefit.
+- ✅ Merged the old two-workflow design (`notify.yml` + `poll_subscribers.yml`) into a single `tick.py` / `tick.yml` — necessary once delivery time is per-subscriber rather than fixed, and removes a subscriber-list write race as a side benefit.
 - ✅ Unit-tested locally (mocked Telegram calls): due/not-due logic, same-day dedup, `/settime` validation (rejects malformed times, accepts aliases like `hightea`), `/mytimes`, `/reset`, unknown-command help text.
-- ⬜ Real end-to-end verification once subscribed (folded into Phase 1's remaining checklist above).
+- ✅ Real end-to-end verification: confirmed working via manual dispatch on 2026-09-15 (sent an overdue breakfast notification correctly once triggered).
+
+## Phase 1.6 — Fix unreliable scheduling (found in production, 2026-09-15)
+
+**Problem found:** GitHub's `schedule` trigger fired only 3 times in the first ~14 hours instead of the expected ~168 (every 5 min), including a 4+ hour gap that caused a missed breakfast notification and a many-hours-late welcome message. Root cause: GitHub Actions' `schedule` event runs on shared, best-effort infrastructure and is not guaranteed to fire on time — documented GitHub behavior, worse on low-activity/public repos. Full writeup in `ARCHITECTURE.md` §3.3.
+
+**Fix:** an external scheduler (cron-job.org, free) calls GitHub's `workflow_dispatch` REST API every 5 minutes instead — those dispatches aren't subject to the same throttling (confirmed: every manual test during debugging ran within ~15 seconds). `tick.yml`'s own `schedule` trigger stays as a free fallback.
+
+- ✅ Root-caused via GitHub Actions run history/logs and confirmed against GitHub's documented `schedule` behavior.
+- ✅ `tick.yml` already exposes `workflow_dispatch` (no code change needed — it's the same trigger used for manual testing).
+- ⬜ **User action needed:** create a fine-grained GitHub PAT scoped to only `eklavyamathur9/NotiMess`, permission "Actions: Read and write" (github.com → Settings → Developer settings → Fine-grained tokens → Generate new token).
+- ⬜ **User action needed:** create a free cron-job.org account, add a job:
+  - URL: `https://api.github.com/repos/eklavyamathur9/NotiMess/actions/workflows/tick.yml/dispatches`
+  - Method: `POST`
+  - Headers: `Authorization: token <the PAT>`, `Accept: application/vnd.github+json`
+  - Body: `{"ref": "main"}`
+  - Schedule: every 5 minutes
+- ⬜ Verify: after setup, check `gh run list --repo eklavyamathur9/NotiMess` shows runs roughly every 5 minutes with `event: workflow_dispatch`.
 
 **Exit criteria:** for one full day, all four meals produce a correct, on-time Telegram notification with no manual intervention — for you as subscriber #1.
 
