@@ -3,7 +3,8 @@
   "subscribers": {
     "1356361611": {
       "last_sent": {
-        "breakfast": "2026-09-15"
+        "breakfast": "2026-09-15",
+        "lunch": "2026-09-15"
       },
       "prefs": {
         "breakfast": "07:15",
@@ -15,7 +16,8 @@
     },
     "5875395515": {
       "last_sent": {
-        "breakfast": "2026-09-15"
+        "breakfast": "2026-09-15",
+        "lunch": "2026-09-15"
       },
       "prefs": {
         "breakfast": "07:15",
