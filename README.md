@@ -14,9 +14,11 @@ No server to run, no database beyond two JSON files in this repo, no LLM call at
 Message the bot on Telegram. Tap the `/` icon next to the message box for a clickable command list, or type:
 
 - `/menu` — get the current or next meal's menu right now, no subscription needed
+- `/full` — get today's full menu, all four meals, no subscription needed
+- `/vegonly` — toggle hiding non-veg items from your menus (subscribers only)
 - `/start` — subscribe (default times: Breakfast 07:15, Lunch 12:00, High Tea 16:45, Dinner 19:00 IST)
 - `/settime <breakfast|lunch|high_tea|dinner> <HH:MM>` — set your own time for a meal, e.g. `/settime breakfast 08:00`
-- `/mytimes` — show your current times
+- `/mytimes` — show your current times and veg-only setting
 - `/reset` — revert all times to default
 - `/stop` — unsubscribe
 

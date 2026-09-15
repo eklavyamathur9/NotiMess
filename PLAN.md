@@ -71,12 +71,24 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 - ⬜ First real test of the update workflow: next time the poster changes, re-photograph → ask Claude to re-parse → update the JSON in `data/menus/` → commit. Confirm no code changes were needed.
 - ⬜ If a second week's poster ever appears, confirm/deny the "Week 1/Week 2 rotation" open question from `PRD.md` and, only if confirmed, add a second dated file and the small lookup logic to pick between them.
 
+## Phase 1.8 — Veg-only filter and full-day menu (FR14, FR15, done, 2026-09-15)
+
+- ✅ `strip_nonveg()` added to `tick.py`: strips the non-veg half out of combined "(Veg)/(Non-Veg)" items, handling both orderings found in the data. Tested against all 6 such items in the current menu file, plus plain veg items (unaffected) — all correct.
+- ✅ `/vegonly` toggles a per-subscriber `veg_only` flag (default off), applied in scheduled sends, `/menu`, and `/full` alike. Visible in `/mytimes`.
+- ✅ `/full` returns all four of today's meals in one message; message length checked against Telegram's 4096-char cap (longest day observed: ~650 chars).
+- ✅ Bot command list and `/start`'s welcome text updated to mention both.
+- ⬜ Try both live (toggle `/vegonly`, check a day with a mixed item like Wednesday breakfast; try `/full`).
+
 ## Phase 5 — Stretch (not committed, revisit if wanted later)
-- ⬜ Per-subscriber preferences (veg-only, mute weekends, choose hostel block) — keyed on `chat_id`, no login.
+- ⬜ Mute for N days (e.g. `/mute 3`) — pause without unsubscribing.
+- ⬜ Weekly digest — one message with the whole week's menu.
+- ⬜ Group chat support — bot added to a hostel wing's group instead of/alongside DMs.
+- ⬜ Ratings/feedback on individual dishes.
+- ⬜ Admin broadcast (`/broadcast <text>`) for maintainer announcements.
 - ⬜ Admin web UI for menu edits (maintainer-only login), replacing the manual Claude re-parse step.
-- ⬜ WhatsApp as an additional, opt-in channel — cost-gated (see chat history for the per-message pricing breakdown), only worth it once there's real subscriber demand.
+- ⬜ WhatsApp as an additional, opt-in channel — cost-gated (see `MEMORY.md` for the per-message pricing breakdown), only worth it once there's real subscriber demand.
 - ⬜ Multi-institution support (the `data/menus/` naming already anticipates this).
 - ⬜ Explore automated OCR ingestion instead of manual Claude-assisted parsing, if menu changes become frequent enough to be worth it.
 
 ## Next concrete step
-Core bot is live and reliable. What's left in Phase 1: spot-check the menu data against the physical poster, and let it run unattended through one full real day to confirm all four scheduled meals land correctly. Beyond that, pick from Phase 2 (landing website) or the feature ideas logged in `MEMORY.md` — see "Bot feature ideas" there for the full list.
+Core bot is live, reliable, and now has `/menu`, `/full`, and `/vegonly`. What's left in Phase 1: spot-check the menu data against the physical poster, and confirm the veg filter and full-menu command live in Telegram. Beyond that, pick from Phase 2 (landing website) or the remaining Phase 5 ideas above.

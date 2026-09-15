@@ -159,3 +159,16 @@ Added 2026-09-15: a way to check the menu right now, on demand, without waiting 
   - If a meal's counter is open right now, `/menu` returns *that* meal (labeled "Currently serving").
   - Otherwise, the next meal whose counter opens later today (labeled "Coming up next").
   - If every meal for today is already over, tomorrow's breakfast (labeled "That's it for today — tomorrow's first meal") — so it never returns nothing or an error, always a useful answer.
+
+## 24. FR14 — Full-day menu (`/full`)
+
+Added 2026-09-15: `/full` returns all four of today's meals in a single message, for anyone who'd rather see the whole day at once than query `/menu` repeatedly. Same "no subscription required" rule as `/menu`. Respects the subscriber's veg-only preference (FR15) if they have one set.
+
+## 25. FR15 — Veg-only filter (`/vegonly`)
+
+Added 2026-09-15: a per-subscriber toggle that strips non-veg items out of every message they receive — scheduled notifications, `/menu`, and `/full` alike.
+
+- **`/vegonly`** toggles the setting and confirms the new state in its reply (no separate on/off argument to remember). Requires being subscribed, since the preference has to be stored somewhere.
+- **Visible in `/mytimes`**, alongside the meal times, so a subscriber can check their current setting without guessing.
+- **How filtering works:** the source menu data mixes veg and non-veg options into single strings, e.g. `"Paneer Chatpata (Veg), Chicken Kosha (Non-Veg)"` (or the reverse order, e.g. `"Boiled Egg (Non-Veg) / Steamed Green Gram Sprouts (Veg)"`). When veg-only is on, each item is checked for a `(Non-Veg)` marker; if found, the item is replaced with just its veg half (tag stripped). Plain veg items (no marker at all — the majority of the menu) pass through unchanged. Verified against every such combined item in the current dataset (6 of them, in both orderings).
+- **Default: off** (shows everything) for anyone who hasn't toggled it — matches the existing "customize only if you want to" pattern from notification times.

@@ -74,7 +74,7 @@ Combined with the "at or after" delivery semantics in §11, an occasional missed
 
 ### 3.4 Tick script — `tick.py`
 Runtime logic, no external LLM/API dependency. One run does both of:
-1. **Poll for new messages:** call Telegram's `getUpdates` with an `offset` past the last-seen update ID (persisted in `data/subscribers.json` so nothing is double-processed). Route any `/start`, `/menu`, `/stop`, `/settime`, `/mytimes`, `/reset` command to its handler (§11, §12).
+1. **Poll for new messages:** call Telegram's `getUpdates` with an `offset` past the last-seen update ID (persisted in `data/subscribers.json` so nothing is double-processed). Route any `/start`, `/menu`, `/full`, `/vegonly`, `/stop`, `/settime`, `/mytimes`, `/reset` command to its handler (§11, §12, §13).
 2. **Check and send due notifications:** for every subscriber, for every meal, compare their preferred time (default or custom) against the current `Asia/Kolkata` time; if it's passed and today's notification for that meal hasn't been sent yet, build the message (menu lookup + format per `PRD.md` §8) and send it via `sendMessage`.
 3. If a `sendMessage` call comes back "blocked"/"chat not found," drop that subscriber — no point retrying someone who's blocked the bot.
 4. Save `data/subscribers.json` if anything changed; the workflow step commits it.
@@ -117,7 +117,8 @@ Kept to a single file, stdlib + `requests` only — no framework needed for some
   "subscribers": {
     "111111111": {
       "prefs": { "breakfast": "07:15", "lunch": "12:00", "high_tea": "16:45", "dinner": "19:00" },
-      "last_sent": { "breakfast": "2026-09-18", "lunch": "2026-09-18" }
+      "last_sent": { "breakfast": "2026-09-18", "lunch": "2026-09-18" },
+      "veg_only": false
     }
   }
 }
@@ -215,3 +216,12 @@ Each subscriber can set their own preferred delivery time per meal instead of a 
 - **`determine_target_meal(menu, now)` in `tick.py`:** parses each meal's counter-hours string (`"07:30 AM to 09:30 AM"`) into start/end times via `datetime.strptime(..., "%I:%M %p")`, then: returns the meal currently open if `now` falls in its window; else the next meal opening later today; else tomorrow's breakfast if every meal today has already closed. Always returns something usable — never "no meal found."
 - **No subscription needed** — reuses the same `menu` already loaded for the tick's other work, doesn't touch `state["subscribers"]` at all.
 - **"Click to run":** the bot's command list is registered with Telegram via `setMyCommands` (called once per tick — cheap, idempotent) so `/menu` appears in the native "/" command picker next to the message box, not just as something a user has to type from memory.
+
+## 13. Full-day menu and veg-only filter (FR14, FR15)
+
+Full spec and copy in `PRD.md` §24–25.
+
+- **`/full`:** loops `build_message()` over all four `MEALS` for today and joins them with a separator (`———`). No new data-fetching logic — it's the same per-meal formatter called four times instead of once. Message length checked against Telegram's 4096-char cap (longest observed day: ~650 chars, comfortably under).
+- **`/vegonly`:** toggles a `veg_only` boolean stored per subscriber (default `false`, set alongside `prefs`/`last_sent` at `/start` time). Read at every call site that formats a message for a known subscriber — `send_due_notifications`, `/menu`, `/full` — and passed into `build_message(..., veg_only=...)`.
+- **`strip_nonveg(item)`:** the filtering logic itself. The source menu data combines veg/non-veg alternatives into one string per item, e.g. `"Paneer Chatpata (Veg), Chicken Kosha (Non-Veg)"`, and — critically — not in a consistent order (one item in the current dataset, a breakfast egg dish, lists the non-veg half first). The function checks for a `"(Non-Veg)"` marker; if present, it splits the item on whichever separator is used (`" / "` or `", "`), keeps whichever half contains `"(Veg)"` and not `"(Non-Veg)"`, and strips the now-redundant `"(Veg)"` tag. An item with no `"(Non-Veg)"` marker at all (the majority — plain vegetarian dishes) passes through untouched. Verified against all 6 combined items present in the current menu file before shipping.
+- **Not retroactive:** turning `/vegonly` on only affects messages sent *after* the toggle — it doesn't edit or recall anything already delivered.
