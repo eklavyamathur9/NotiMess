@@ -1,8 +1,10 @@
 {
-  "last_update_id": 346383709,
+  "last_update_id": 346383711,
   "subscribers": {
     "1356361611": {
-      "last_sent": {},
+      "last_sent": {
+        "breakfast": "2026-09-15"
+      },
       "prefs": {
         "breakfast": "07:15",
         "dinner": "19:00",
