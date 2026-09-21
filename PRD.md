@@ -57,7 +57,7 @@ All times are `Asia/Kolkata` (IST, UTC+5:30, no DST).
 
 ## 9. Data quality caveat
 
-The current `data/menus/*.json` was extracted by Claude reading a single photo of the poster. Breakfast and High Tea rows are high-confidence; some Lunch/Dinner cells (particularly Saturday/Sunday) were reconstructed from a densely merged table and carry medium confidence — see `_extraction_meta` in the JSON file. **Action item:** spot-check against the physical poster once during Phase 1 (see `PLAN.md`).
+The original Week 1 menu was extracted by Claude reading a single photo of the poster (Breakfast/High Tea high-confidence, some Lunch/Dinner cells medium-confidence) and later corrected by the user against a more careful transcription. **As of 2026-09-21, the active menu is Week 2**, supplied directly by the user as structured JSON (not photo-extracted) — different provenance, but still worth a spot-check against the physical poster since it hasn't had one yet. Note for whoever ingests the *next* update: user-supplied JSON files have arrived in a different raw shape each time (flat `breakfast`/`lunch`/... keys with a `days` sub-key, vs. the canonical `meals` wrapper with an `items` sub-key) — always convert to the canonical schema before dropping the file in `data/menus/`, don't assume the shape matches. Also check any new `(Non-Veg)`-tagged items against `strip_nonveg()`'s assumptions (§25) — Week 2 already broke one assumption Week 1 had established (see `MEMORY.md`).
 
 ## 10. Success metrics
 
@@ -65,8 +65,9 @@ Purely qualitative, personal-use tool — success is "notification reliably show
 
 ## 11. Open questions
 
-- Does the mess actually rotate through multiple weeks (poster says "Week 1"), or was that just how September's single menu happens to be labeled? Unknown until a Week 2 poster is seen. `data/menus/*.json` currently only encodes one week and is treated as a repeating 7-day cycle until proven otherwise.
-- Exact cadence of menu changes (monthly?) — determines how often the re-ingestion workflow (FR4) actually gets exercised.
+- ~~Does the mess actually rotate through multiple weeks?~~ **Resolved 2026-09-21: yes.** Week 2 replaced Week 1 exactly 7 days after Week 1's effective date (14 Sept → 21 Sept), confirming a weekly rotation. **Not yet resolved:** whether it's a strict 2-week cycle (back to Week 1 on 28 Sept) or continues to a Week 3, and whether the cadence stays exactly 7 days going forward. One more data point (whatever menu shows up around 28 Sept) would confirm or refute a clean 2-week loop.
+- **New decision point this raised:** right now, each new week's menu still requires a manual "give Claude the new file, get it swapped in" pass (this is how Week 1→2 was done) — there's no automatic rotation. Building that (a small `week` lookup keyed off days-since-anchor, per the design already sketched in `ARCHITECTURE.md` §4) was deliberately not done yet, since automating a pattern confirmed from only two data points risked locking in a wrong assumption. Worth revisiting once the cycle length is certain — see `PLAN.md` Phase 4.
+- Exact cadence of menu changes beyond the weekly rotation (does the whole cycle itself get replaced monthly, each September/October etc.?) — still open, will become clearer over time.
 
 ## 12. Future ideas (explicitly out of scope for v1)
 

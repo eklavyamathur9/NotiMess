@@ -68,8 +68,9 @@ Earlier drafts of this plan had Phase 1 build a personal-only ntfy notifier firs
 - ⬜ Decide and document a fallback for a Telegram Bot API outage (rare, but note it in `MEMORY.md` if it ever happens).
 
 ## Phase 4 — Menu lifecycle
-- ⬜ First real test of the update workflow: next time the poster changes, re-photograph → ask Claude to re-parse → update the JSON in `data/menus/` → commit. Confirm no code changes were needed.
-- ⬜ If a second week's poster ever appears, confirm/deny the "Week 1/Week 2 rotation" open question from `PRD.md` and, only if confirmed, add a second dated file and the small lookup logic to pick between them.
+- ✅ **First real test, 2026-09-21:** Week 2 menu (user-supplied JSON, different raw shape than the canonical schema) swapped in for Week 1. Required: schema conversion (flat `breakfast`/`lunch`/... keys + `days` sub-key → canonical `meals` wrapper + `items` sub-key), and a `strip_nonveg()` fix (Week 2 tags only the non-veg half of combined items, unlike Week 1 which tagged both — the old filter logic would have silently broken). No workflow/cron changes needed, as designed. Verified live via `gh run list` + run logs afterward.
+- ✅ **"Week 1/Week 2 rotation" open question — confirmed, not just theorized:** Week 2 went effective exactly 7 days after Week 1 (14→21 Sept). See `PRD.md` §11 for what's still unconfirmed (cycle length — 2-week loop vs. more weeks).
+- ⬜ **Decision pending (asked in chat 2026-09-21):** build automatic weekly rotation now (multiple files + a days-since-anchor lookup, sketched in `ARCHITECTURE.md` §4), or keep doing manual single-file swaps until the cycle length is confirmed by a third data point (~28 Sept)? Not built either way yet — deliberately, given only two data points so far.
 
 ## Phase 1.8 — Veg-only filter and full-day menu (FR14, FR15, done, 2026-09-15)
 
