@@ -93,16 +93,21 @@ def load_active_menu(today: datetime) -> dict:
 
 def strip_nonveg(item: str) -> str:
     """'Paneer Chatpata (Veg), Chicken Kosha (Non-Veg)' -> 'Paneer Chatpata'
-    Handles both orderings (veg-first and non-veg-first) and either
-    separator (' / ' or ', ') found in the menu data. Items with no
-    (Non-Veg) marker at all (the common case) pass through unchanged."""
+    'Veg Kolapuri / Kolhapuri (Non-Veg)' -> 'Veg Kolapuri'
+
+    Keeps whichever half of a '/'- or ','-separated pair does NOT carry a
+    '(Non-Veg)' tag, then strips a '(Veg)' tag from what's kept if present.
+    Doesn't require the veg half to be tagged at all -- some menu files tag
+    only the non-veg alternative (its dish name alone, e.g. 'Veg Kolapuri',
+    is left untouched since there's no '(Veg)' substring to strip)."""
     if "(Non-Veg)" not in item:
         return item
     for sep in (" / ", ", "):
         if sep in item:
-            for part in item.split(sep, 1):
-                if "(Veg)" in part and "(Non-Veg)" not in part:
-                    return part.replace("(Veg)", "").strip()
+            parts = item.split(sep, 1)
+            kept = [p for p in parts if "(Non-Veg)" not in p]
+            if len(kept) == 1:
+                return kept[0].replace("(Veg)", "").strip()
     return item  # unexpected shape -- leave as-is rather than guess wrong
 
 
