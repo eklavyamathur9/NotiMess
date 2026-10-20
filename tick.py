@@ -99,7 +99,11 @@ def strip_nonveg(item: str) -> str:
     '(Non-Veg)' tag, then strips a '(Veg)' tag from what's kept if present.
     Doesn't require the veg half to be tagged at all -- some menu files tag
     only the non-veg alternative (its dish name alone, e.g. 'Veg Kolapuri',
-    is left untouched since there's no '(Veg)' substring to strip)."""
+    is left untouched since there's no '(Veg)' substring to strip).
+
+    Returns '' for a non-veg item with no veg half to fall back on (a
+    standalone '(Non-Veg)' dish): the whole dish is non-veg, so it is
+    dropped from a veg-only menu rather than leaked into it."""
     if "(Non-Veg)" not in item:
         return item
     for sep in (" / ", ", "):
@@ -108,7 +112,7 @@ def strip_nonveg(item: str) -> str:
             kept = [p for p in parts if "(Non-Veg)" not in p]
             if len(kept) == 1:
                 return kept[0].replace("(Veg)", "").strip()
-    return item  # unexpected shape -- leave as-is rather than guess wrong
+    return ""  # no veg half to keep -- drop the whole (non-veg) item
 
 
 def build_message(menu: dict, meal: str, today: datetime, veg_only: bool = False) -> str:
@@ -119,9 +123,9 @@ def build_message(menu: dict, meal: str, today: datetime, veg_only: bool = False
     header = f"{emoji} {label} — {time_range}" if meal_data else f"{emoji} {label}"
 
     items = (meal_data or {}).get("items", {}).get(weekday, [])
-    items = [i for i in items if i and i.upper() != "NA"]
     if veg_only:
         items = [strip_nonveg(i) for i in items]
+    items = [i for i in items if i and i.upper() != "NA"]
     body = ", ".join(items) if items else "Menu not available for today — check the noticeboard."
 
     return f"{header}\n\n{body}"

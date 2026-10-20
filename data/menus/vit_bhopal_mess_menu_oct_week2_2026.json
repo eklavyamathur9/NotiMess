@@ -1,0 +1,295 @@
+{
+  "institution": "VIT Bhopal",
+  "title": "Boys & Girls Hostels Mess Menu - September 2026 (Effective from 19th October 2026) (Veg & Non-Veg) - Week 2",
+  "effective_from": "19th October 2026",
+  "category": "Veg & Non-Veg",
+  "week": 2,
+  "days": [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday"
+  ],
+  "meals": {
+    "breakfast": {
+      "time": "07:30 AM to 09:30 AM",
+      "counter_closing_time": "09:30 AM",
+      "items": {
+        "Monday": [
+          "Vegetable Idli & Ulundu Vada",
+          "Sambar",
+          "Tomato Onion Mint Chutney",
+          "Mix Fruits",
+          "1 Boiled Egg (Non-Veg) / Steamed Sprouts Salad (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Tuesday": [
+          "Poha, Sev, Jeeraman",
+          "Jalebi",
+          "Banana",
+          "1 Boiled Egg (Non-Veg) / Mixed Vegetables & Sprouts Salad (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Wednesday": [
+          "Misal Pav",
+          "Mix Fruits",
+          "1 Boiled Egg (Non-Veg) / Steamed Green Gram Sprouts (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Thursday": [
+          "Methi Paratha",
+          "Dahi",
+          "Pickle",
+          "Banana",
+          "1 Boiled Egg (Non-Veg) / Peas & Green Gram Sprouts Chat (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Friday": [
+          "Podi Uttapam",
+          "Sambar",
+          "Lasuni Chutney",
+          "Single Fruit",
+          "Egg Bhurji (Non-Veg) / Paneer Bhurji (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Saturday": [
+          "Batura",
+          "Chole Masala",
+          "Lemon & Chilli",
+          "Mix Fruits",
+          "1 Boiled Egg (Non-Veg) / Steamed Green Gram Sprouts (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ],
+        "Sunday": [
+          "Dosa, Serve Masala Separately",
+          "Sambar",
+          "Coconut Chutney",
+          "Banana",
+          "1 Boiled Egg (Non-Veg) / Mixed Sprouts Chat (Veg)",
+          "Bread, Butter, Jam",
+          "Tea, Coffee, Milk"
+        ]
+      }
+    },
+    "lunch": {
+      "time": "12:15 PM to 2:30 PM",
+      "counter_closing_time": "02:30 PM",
+      "items": {
+        "Monday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Palak Dal",
+          "Aloo Buruji",
+          "Bisibelebath & Boondi",
+          "Beans, Carrot/Peas Stir Fry",
+          "Pepper Rasam",
+          "Curd",
+          "Fruit Kesari",
+          "Pickle"
+        ],
+        "Tuesday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Kashmiri Rajma",
+          "Matki Usal",
+          "Drumstick (Imli) Tikha Curry",
+          "Cabbage Peas Saute",
+          "Lemon Rasam",
+          "Butter Milk",
+          "NA",
+          "Pickle"
+        ],
+        "Wednesday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Veg Dalma",
+          "Aloo Kosa",
+          "Lowki Sambhar",
+          "Beetroot Grated Saute",
+          "Pineapple Rasam",
+          "Curd",
+          "Kheer",
+          "Pickle"
+        ],
+        "Thursday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Panchmel Dal",
+          "Mixed Vegetable Kadai Dry",
+          "Brinjal Imli Tikha Curry",
+          "Aloo Gobi Dry Sabzi",
+          "Tomato Dhaniya Shorba",
+          "Chaas",
+          "NA",
+          "Pickle"
+        ],
+        "Friday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Amritsari Chole Masala",
+          "Papad / Fryum",
+          "Pappu (Thick Dhal)",
+          "Mix Vegetable Fry",
+          "Chettinadu Rasam",
+          "Curd",
+          "Gulab Jamun",
+          "Pickle"
+        ],
+        "Saturday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Soyachunk Chukka Masala",
+          "Amti Dal",
+          "Garlic Potato Roast",
+          "Pudina Rice",
+          "Garlic Rasam",
+          "Butter Milk",
+          "NA",
+          "Pickle"
+        ],
+        "Sunday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Veg Lucknowi Biryani (Veg) / Chicken Lucknowi Biryani (Non-Veg)",
+          "Paneer Pasanda (Lucknow/Delhi)",
+          "Masala Dal",
+          "Onion/Cucumber Raita",
+          "Veg Salan (Long Mirchi/Brinjala) (Dhabha Style)",
+          "NA",
+          "Double Ka Meetha",
+          "Pickle"
+        ]
+      }
+    },
+    "high_tea": {
+      "time": "05:00 PM to 06:30 PM",
+      "counter_closing_time": "06:30 PM",
+      "items": {
+        "Monday": [
+          "Sprouts Chat",
+          "Tea, Milk, Coffee"
+        ],
+        "Tuesday": [
+          "Vegetable Cutlet with Chutney",
+          "Tea, Coffee, Milk"
+        ],
+        "Wednesday": [
+          "Dahi Vada with Vegetable Toppings/ Boondi Toppings",
+          "Tea, Coffee, Milk"
+        ],
+        "Thursday": [
+          "Bhel Poori",
+          "Tea, Coffee, Milk"
+        ],
+        "Friday": [
+          "Mirchi Bhaji / Mix Bhaji with Coconut Chutney/Red Chutney",
+          "Tea, Coffee, Milk"
+        ],
+        "Saturday": [
+          "Corn Club Sandwich, Green Chutney (Indo - Western)",
+          "Tea, Coffee, Milk"
+        ],
+        "Sunday": [
+          "Chinese Veg Noodles (Indo - Chinese)",
+          "Tea, Coffee, Milk"
+        ]
+      }
+    },
+    "dinner": {
+      "time": "07:15 PM to 09:15 PM",
+      "counter_closing_time": "09:15 PM",
+      "items": {
+        "Monday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Toor Dal",
+          "Veg Kolapuri (Veg) / Egg Kolhapuri (Non-Veg)",
+          "Mix Vegetable Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Tuesday": [
+          "Roti (Plain & Butter)",
+          "Jeera Rice & Plain Rice",
+          "Dal Fry",
+          "Banana Bhindi Dry",
+          "Cucumber Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Wednesday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Dal Tadka",
+          "Paneer Lababdar (Veg) / Pepper Chicken (Non-Veg)",
+          "Mix Vegetable Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Thursday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Bhaja Muger Dal",
+          "Chole Masala (Mix Veg) / Egg Jhol Masala (Non-Veg)",
+          "Bengali Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Friday": [
+          "Roti (Plain & Butter)",
+          "Plain Rice - North & South",
+          "Dal Tadka (North India)",
+          "Mutter Paneer Masala (Veg) / Chicken Makhani (Non-Veg)",
+          "Mix Vegetable Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Saturday": [
+          "Roti (Plain & Butter)",
+          "Veg Fried Rice & Plain Rice",
+          "Veg Manchurian Semi-Gravy (Indo - Chinese)",
+          "Dal Fry (North India)",
+          "Bengali Salad (West Bengal)",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ],
+        "Sunday": [
+          "Roti (Plain & Butter)",
+          "Ghee Rice & Plain Rice",
+          "Mix Dal",
+          "Aloo Shimla Mirch (North India)",
+          "Mix Vegetable Salad",
+          "Rasam",
+          "Curd Rice",
+          "Pickle"
+        ]
+      }
+    }
+  },
+  "notes": [
+    "NA - Means: Not Applicable / No Food",
+    "Eggs - One egg in breakfast and two eggs in dinner to be served",
+    "Toasters should be kept in serving counter for toasting bread",
+    "Cooked chicken with bone and without gravy serving meat size: 120gm",
+    "Cooked boneless chicken without gravy serving meat size: 100gm",
+    "Transcribed from the 'Oct 19 Menu' poster photo supplied by the user (photo not committed to the repo).",
+    "Poster heading says 'September 2026 (Effective from 19th October 2026)' but the weekday columns are dated 21-27 September 2026 -- mismatch present in the photo, preserved as printed.",
+    "Some dish spellings are uncertain readings of the photo (e.g. 'Jeeraman', 'Aloo Buruji', 'Lowki Sambhar', 'Soyachunk Chukka Masala', 'Dosa, Serve Masala Separately').",
+    "Veg / non-veg alternatives share one poster cell, so they are stored as one item separated by ' / ' with the non-veg half tagged '(Non-Veg)'."
+  ]
+}

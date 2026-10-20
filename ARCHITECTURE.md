@@ -40,7 +40,7 @@ An earlier draft of this architecture planned a webhook-based design: a serverle
 
 ### 3.1 Menu data store — `data/menus/*.json`
 - Single source of truth for what's being served.
-- Structure: meal-major. Top-level `meals` object keyed by `breakfast`/`lunch`/`high_tea`/`dinner`, each carrying its time window (`time`, `counter_closing_time`) and an `items` object keyed by day name (`"Monday"`..`"Sunday"`) → flat list of dish strings. One file per institution+month (e.g. `vit_bhopal_mess_menu_september_2026.json`).
+- Structure: meal-major. Top-level `meals` object keyed by `breakfast`/`lunch`/`high_tea`/`dinner`, each carrying its time window (`time`, `counter_closing_time`) and an `items` object keyed by day name (`"Monday"`..`"Sunday"`) → flat list of dish strings. One file per menu period (e.g. `vit_bhopal_mess_menu_september_2026.json`, `vit_bhopal_mess_menu_oct_week2_2026.json`). `load_active_menu()` picks the file with the latest `effective_from` that is already in the past, so a superseded period's file can simply be left in place.
 - Treated as **read-only by the scheduled jobs** — it only ever gets updated by a human (with Claude's help) re-parsing a new poster photo.
 - The current file was corrected once already (see `MEMORY.md` change log, 2026-09-14) after a user-supplied re-transcription fixed several cells an earlier automated pass got wrong — a concrete reminder that a fresh poster photo should always be spot-checked, not just trusted from a single vision pass.
 
@@ -194,6 +194,7 @@ NotiMess/
 ├── tick.py                                # poll Telegram + send due notifications, one pass
 ├── data/
 │   ├── menus/
+│   │   ├── vit_bhopal_mess_menu_oct_week2_2026.json
 │   │   └── vit_bhopal_mess_menu_september_2026.json
 │   └── subscribers.json
 └── .github/
@@ -227,4 +228,5 @@ Full spec and copy in `PRD.md` §24–25.
 - **`/vegonly`:** toggles a `veg_only` boolean stored per subscriber (default `false`, set alongside `prefs`/`last_sent` at `/start` time). Read at every call site that formats a message for a known subscriber — `send_due_notifications`, `/menu`, `/full` — and passed into `build_message(..., veg_only=...)`.
 - **`strip_nonveg(item)`:** the filtering logic itself. The source menu data combines veg/non-veg alternatives into one string per item, e.g. `"Paneer Chatpata (Veg), Chicken Kosha (Non-Veg)"`, in no consistent order or tagging convention. The function splits on whichever separator is used (`" / "` or `", "`) and **keeps whichever half does *not* carry `"(Non-Veg)"`**, then strips a `"(Veg)"` tag from what's kept *if one is present*. An item with no `"(Non-Veg)"` marker at all (the majority — plain vegetarian dishes) passes through untouched.
   - **Revised 2026-09-21** after the Week 2 menu swap exposed a gap: the original version required the kept half to explicitly contain `"(Veg)"` to be recognized — true for every combined item in Week 1's data, but Week 2 tags *only* the non-veg half (e.g. `"Veg Kolapuri / Kolhapuri (Non-Veg)"` — the veg half has no parenthetical tag, just the word "Veg" as part of the dish name). The old logic would have silently stopped filtering the moment this data went live. Caught before shipping by enumerating every `(Non-Veg)`-tagged item in the new file first (see `MEMORY.md`) — re-verified against both weeks' combined items plus plain veg items before the swap.
+  - **Revised 2026-10-20** after the 19-Oct menu swap: a non-veg item with *no* veg half to fall back on (a standalone `"(Non-Veg)"` dish) is now **dropped** (the function returns `""`) rather than passed through — such an item is wholly non-veg, so leaking it into a veg-only menu would be a silent filter failure. `build_message()` filters the empty result out (the `NA`/empty filter now runs *after* the veg filter, not before). The 19-Oct data itself pairs every non-veg dish with its veg alternative in one poster cell (`"Veg Kolapuri (Veg) / Egg Kolhapuri (Non-Veg)"`), so the guard is insurance, not a crutch.
 - **Not retroactive:** turning `/vegonly` on only affects messages sent *after* the toggle — it doesn't edit or recall anything already delivered.
