@@ -1,5 +1,5 @@
 {
-  "last_update_id": 346383724,
+  "last_update_id": 346383725,
   "subscribers": {
     "1356361611": {
       "last_sent": {
@@ -14,7 +14,7 @@
         "high_tea": "16:45",
         "lunch": "12:00"
       },
-      "veg_only": true
+      "veg_only": false
     },
     "7334903460": {
       "last_sent": {
