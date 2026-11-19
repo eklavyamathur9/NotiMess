@@ -17,6 +17,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -76,19 +77,24 @@ def parse_effective_from(value: str) -> datetime:
 
 
 def load_active_menu(today: datetime) -> dict:
-    candidates = []
+    candidates, loadable = [], []
     for path in MENUS_DIR.glob("*.json"):
-        data = json.loads(path.read_text())
-        effective = parse_effective_from(data["effective_from"])
+        try:
+            data = json.loads(path.read_text())
+            effective = parse_effective_from(data["effective_from"])
+        except (KeyError, TypeError, ValueError) as exc:
+            # A new menu dropped in the wrong shape must not fail every tick;
+            # warn loudly in the Actions log and keep serving the last good file.
+            print(f"Skipping menu file {path.name}: {exc}", file=sys.stderr)
+            continue
+        loadable.append((effective, data))
         if effective.date() <= today.date():
             candidates.append((effective, data))
-    if not candidates:
-        any_file = next(MENUS_DIR.glob("*.json"), None)
-        if any_file is None:
-            raise FileNotFoundError(f"No menu files found in {MENUS_DIR}")
-        return json.loads(any_file.read_text())
-    candidates.sort(key=lambda pair: pair[0])
-    return candidates[-1][1]
+    pool = candidates or loadable  # nothing effective yet -> newest file anyway
+    if not pool:
+        raise FileNotFoundError(f"No usable menu file found in {MENUS_DIR}")
+    pool.sort(key=lambda pair: pair[0])
+    return pool[-1][1]
 
 
 def strip_nonveg(item: str) -> str:
@@ -197,11 +203,24 @@ def save_state(state: dict) -> None:
 
 # ---------- Telegram ----------
 
+def api_request(method: str, url: str, **kwargs):
+    """Telegram sometimes resets the connection or times out from GitHub's
+    runners. Retry those a couple of times before giving up: the tick runs
+    every minute, so a transient blip should not fail the run (and email)."""
+    for attempt in range(3):
+        try:
+            return requests.request(method, url, timeout=15, **kwargs)
+        except requests.RequestException:
+            if attempt == 2:
+                raise
+            time.sleep(1 + attempt)
+
+
 def send(token: str, chat_id, text: str) -> dict:
-    resp = requests.post(
+    resp = api_request(
+        "POST",
         f"https://api.telegram.org/bot{token}/sendMessage",
         json={"chat_id": chat_id, "text": text},
-        timeout=15,
     )
     return resp.json()
 
@@ -306,10 +325,10 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
 
 def poll_updates(state: dict, token: str, menu: dict) -> None:
     offset = state.get("last_update_id", 0) + 1
-    resp = requests.get(
+    resp = api_request(
+        "GET",
         f"https://api.telegram.org/bot{token}/getUpdates",
         params={"offset": offset, "timeout": 0},
-        timeout=15,
     )
     resp.raise_for_status()
     result = resp.json()
@@ -410,10 +429,22 @@ def main() -> int:
     menu = load_active_menu(today)
     state = load_state()
 
-    poll_updates(state, token, menu)
-    blocked = send_due_notifications(state, token, menu, today)
+    try:
+        poll_updates(state, token, menu)
+        blocked = send_due_notifications(state, token, menu, today)
+    except requests.RequestException as exc:
+        # Telegram is unreachable. The cron retries in a minute and the
+        # at-or-after rule re-sends whatever was missed, so a blip is not a
+        # failure. Only fail (-> one GitHub email) if it has lasted 3 ticks.
+        failures = state.get("network_failures", 0) + 1
+        state["network_failures"] = failures
+        save_state(state)
+        print(f"Telegram unreachable ({exc}); {failures} failed tick(s) in a row", file=sys.stderr)
+        return 1 if failures == 3 else 0
+
     for chat_id_str in blocked:
         state["subscribers"].pop(chat_id_str, None)
+    state["network_failures"] = 0
 
     save_state(state)
     print(f"Done. {len(state['subscribers'])} active subscriber(s).")

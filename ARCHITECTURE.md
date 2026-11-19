@@ -146,9 +146,11 @@ Design choices:
 
 | Failure | Handling |
 |---|---|
-| `tick.yml` run fails (script error, Telegram API down) | GitHub emails the repo owner on workflow failure by default — free monitoring signal. |
-| Telegram Bot API itself is down | Out of scope to mitigate for a free personal/community tool; the next successful tick catches anything overdue (§11) — no permanent miss, just delay. |
+| `tick.yml` run fails (script error) | GitHub emails the repo owner on workflow failure by default — free monitoring signal. |
+| A transient Telegram network blip (connection reset / read timeout) | **Happened in production, Nov 2026** (~0.6% of ticks, in bursts): `api_request()` retries 3× (1s, 2s backoff) before giving up, and `main()` treats a still-failing tick as a *skip* rather than an error. Only 3 consecutive failed ticks fail the run — once per outage, not one email per minute (`network_failures` counter in `data/subscribers.json`). Partial progress made before the failure is still saved, because the workflow's commit step runs `if: always()`. |
+| Telegram Bot API itself is down | The next successful tick catches anything overdue (§11) — no permanent miss, just delay. A *sustained* outage surfaces as one failed run after 3 minutes (see above), not silence. |
 | Menu JSON missing/malformed data for a slot | Script sends an explicit "menu not available" message instead of failing silently (FR6). |
+| A whole menu file is unparseable (e.g. a new month dropped in without schema conversion) | `load_active_menu()` skips that file, logs `Skipping menu file …` to the Actions log, and keeps serving the newest file that does parse — so one bad file can't turn every tick into a failure. If *no* file parses, it raises a clear `FileNotFoundError`. |
 | A tick is skipped or delayed (GitHub Actions outage/jitter) | Self-healing by design: `last_sent` means the next tick still sends anything that became due since the last successful run — see §11. |
 | GitHub's `schedule` trigger itself is unreliable at 5-min granularity | **Happened in production** (§3.3) — a 4+ hour gap caused a missed breakfast notification. Fixed by moving the real trigger to cron-job.org calling `workflow_dispatch` externally; `schedule` stays as a free fallback. |
 | cron-job.org has an outage or its job silently stops | The `schedule` fallback in `tick.yml` still fires occasionally (best-effort); beyond that, out of scope to mitigate further for a free tool — the same self-healing "at or after" semantics mean a subscriber just gets a late notification once service resumes, not a permanently missed one. |
