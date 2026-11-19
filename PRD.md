@@ -36,7 +36,7 @@ All times are `Asia/Kolkata` (IST, UTC+5:30, no DST).
 
 - **FR1 — Scheduled notification.** Fire a push notification at each of the four times above, every day, automatically, without the user's laptop or phone needing to be on/awake (delivery is push, not pull).
 - **FR2 — Correct day/meal lookup.** Notification content is derived from the current IST date's day-of-week and the meal slot that's about to open, read from a structured menu dataset (`data/menus/*.json`).
-- **FR3 — Readable content.** Message is short enough to read in a lockscreen preview (title = meal name + time window, body = comma-separated dish list, veg/non-veg markers preserved).
+- **FR3 — Readable content.** Message is short enough to read on a phone (title = meal name + time window, body = one `•`-prefixed dish per line, veg/non-veg markers preserved).
 - **FR4 — Menu update workflow.** When the mess menu poster changes (new month, new week rotation), the user re-photographs it and asks Claude to re-parse it into `data/menus/*.json`; no code changes needed for a pure data update.
 - **FR5 — Manual trigger.** Able to manually fire a test notification on demand (to verify delivery works, or check "what's next meal" outside the schedule) via a manual GitHub Actions run.
 - **FR6 — No missed-meal silence.** If a meal's item list is empty/missing in the data, still send a "menu not available" notification rather than silently skipping — so the absence of food info is itself visible, not indistinguishable from "no notification arrived at all."
@@ -51,9 +51,16 @@ All times are `Asia/Kolkata` (IST, UTC+5:30, no DST).
 
 ## 8. Notification content spec
 
-- **Title:** `🍽️ Lunch — 12:15–2:30 PM`
-- **Body:** `Roti, Plain Rice, Dal Fry, Aloo Gobi Masala Dry, Sambar, Beans Patani Poriyal, Pepper Rasam, Curd, Kheer, Pickle`
+- **Title:** `🍽️ <b>Lunch</b> — 12:15 PM – 2:30 PM` (meal name bold, via `parse_mode="HTML"`)
+- **Body:** one dish per line, `• ` prefixed — e.g.
+  ```
+  • Roti (Plain &amp; Butter)
+  • Plain Rice - North &amp; South
+  • Palak Dal
+  ```
 - Emoji per meal: 🌅 Breakfast, 🍽️ Lunch, ☕ High Tea, 🌙 Dinner.
+- **Changed 2026-11-19** from a single comma-joined line: ten-plus dishes on one line were hard to scan on a phone.
+- Dish names are HTML-escaped (`&`→`&amp;`, `<`, `>`) because this data contains `&` (e.g. `Roti (Plain & Butter)`) and Telegram rejects unescaped text in HTML mode. Only menu-shaped messages (scheduled, `/menu`, `/full`) opt into HTML; help and command replies stay plain text because they contain `<breakfast|...>` usage syntax.
 
 ## 9. Data quality caveat
 

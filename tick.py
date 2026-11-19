@@ -121,18 +121,23 @@ def strip_nonveg(item: str) -> str:
     return ""  # no veg half to keep -- drop the whole (non-veg) item
 
 
+def escape_html(text: str) -> str:
+    """Telegram HTML mode only allows its own tags; dish names can contain '&'."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def build_message(menu: dict, meal: str, today: datetime, veg_only: bool = False) -> str:
     emoji, label = MEAL_DISPLAY[meal]
     meal_data = menu["meals"].get(meal)
     weekday = today.strftime("%A")
-    time_range = meal_data["time"].replace(" to ", " – ") if meal_data else ""
-    header = f"{emoji} {label} — {time_range}" if meal_data else f"{emoji} {label}"
+    time_range = escape_html(meal_data["time"].replace(" to ", " – ")) if meal_data else ""
+    header = f"{emoji} <b>{label}</b> — {time_range}" if meal_data else f"{emoji} <b>{label}</b>"
 
     items = (meal_data or {}).get("items", {}).get(weekday, [])
     if veg_only:
         items = [strip_nonveg(i) for i in items]
     items = [i for i in items if i and i.upper() != "NA"]
-    body = ", ".join(items) if items else "Menu not available for today — check the noticeboard."
+    body = "\n".join(f"• {escape_html(i)}" for i in items) if items else "Menu not available for today — check the noticeboard."
 
     return f"{header}\n\n{body}"
 
@@ -216,11 +221,14 @@ def api_request(method: str, url: str, **kwargs):
             time.sleep(1 + attempt)
 
 
-def send(token: str, chat_id, text: str) -> dict:
+def send(token: str, chat_id, text: str, parse_mode: str | None = None) -> dict:
+    payload = {"chat_id": chat_id, "text": text}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     resp = api_request(
         "POST",
         f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": text},
+        json=payload,
     )
     return resp.json()
 
@@ -258,14 +266,14 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
         now = datetime.now(TIMEZONE)
         veg_only = subs.get(key, {}).get("veg_only", False)
         meal, target_dt, status = determine_target_meal(menu, now)
-        send(token, chat_id, build_ondemand_message(menu, meal, target_dt, status, now, veg_only))
+        send(token, chat_id, build_ondemand_message(menu, meal, target_dt, status, now, veg_only), parse_mode="HTML")
 
     elif cmd == "/full":
         now = datetime.now(TIMEZONE)
         veg_only = subs.get(key, {}).get("veg_only", False)
         weekday = now.strftime("%A")
         sections = [build_message(menu, m, now, veg_only) for m in MEALS]
-        send(token, chat_id, f"\U0001F4C5 Today's full menu ({weekday}):\n\n" + "\n\n———\n\n".join(sections))
+        send(token, chat_id, f"\U0001F4C5 <b>Today's full menu</b> ({weekday}):\n\n" + "\n\n———\n\n".join(sections), parse_mode="HTML")
 
     elif cmd == "/vegonly":
         if key not in subs:
@@ -371,7 +379,7 @@ def send_due_notifications(state: dict, token: str, menu: dict, today: datetime)
                 continue  # not due yet
 
             message = build_message(menu, meal, today, veg_only)
-            result = send(token, int(chat_id_str), message)
+            result = send(token, int(chat_id_str), message, parse_mode="HTML")
             if result.get("ok"):
                 last_sent[meal] = today_str
                 print(f"Sent {meal} to {chat_id_str} (preferred {preferred}, sent at {now_str})")
