@@ -30,6 +30,11 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      - name: Sync to latest subscriber state
+        # checkout pins the SHA from *queue* time, so overlapping runs would
+        # read stale state (and re-alert / conflict on the same counter).
+        run: git fetch -q origin main && git reset -q --hard origin/main
+
       - name: Poll subscribers + send any due notifications
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -46,6 +51,12 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add data/subscribers.json
             git commit -m "chore: update subscriber state"
-            git pull --rebase origin main
-            git push
+            # A concurrent tick may have pushed while this one ran. Our state
+            # is the newer snapshot, so prefer it; never fail the job over it.
+            if ! git pull --rebase -X theirs origin main; then
+              git rebase --abort
+              echo "State raced another tick; next run re-syncs."
+              exit 0
+            fi
+            git push || echo "State push raced another tick; next run re-syncs."
           fi

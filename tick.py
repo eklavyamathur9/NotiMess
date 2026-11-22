@@ -31,19 +31,29 @@ TIMEZONE = ZoneInfo("Asia/Kolkata")
 
 MEALS = ["breakfast", "lunch", "high_tea", "dinner"]
 MEAL_ALIASES = {
-    "breakfast": "breakfast", "bf": "breakfast",
+    "breakfast": "breakfast",
+    "bf": "breakfast",
     "lunch": "lunch",
-    "hightea": "high_tea", "high_tea": "high_tea", "tea": "high_tea", "high-tea": "high_tea",
+    "hightea": "high_tea",
+    "high_tea": "high_tea",
+    "tea": "high_tea",
+    "high-tea": "high_tea",
     "dinner": "dinner",
 }
-DEFAULT_PREFS = {"breakfast": "07:15", "lunch": "12:00", "high_tea": "16:45", "dinner": "19:00"}
+DEFAULT_PREFS = {
+    "breakfast": "07:15",
+    "lunch": "12:00",
+    "high_tea": "16:45",
+    "dinner": "19:00",
+}
 MEAL_DISPLAY = {
-    "breakfast": ("\U0001F305", "Breakfast"),
-    "lunch": ("\U0001F37D️", "Lunch"),
+    "breakfast": ("\U0001f305", "Breakfast"),
+    "lunch": ("\U0001f37d️", "Lunch"),
     "high_tea": ("☕", "High Tea"),
-    "dinner": ("\U0001F319", "Dinner"),
+    "dinner": ("\U0001f319", "Dinner"),
 }
 TIME_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
+ALERT_COOLDOWN = timedelta(hours=6)
 
 HELP_TEXT = (
     "Commands:\n"
@@ -62,7 +72,10 @@ BOT_COMMANDS = [
     {"command": "full", "description": "Get today's full menu, all four meals"},
     {"command": "vegonly", "description": "Toggle hiding non-veg items"},
     {"command": "start", "description": "Subscribe to meal notifications"},
-    {"command": "settime", "description": "Set your own time for a meal, e.g. breakfast 08:00"},
+    {
+        "command": "settime",
+        "description": "Set your own time for a meal, e.g. breakfast 08:00",
+    },
     {"command": "mytimes", "description": "Show your current notification times"},
     {"command": "reset", "description": "Reset your times back to default"},
     {"command": "stop", "description": "Unsubscribe"},
@@ -70,6 +83,7 @@ BOT_COMMANDS = [
 
 
 # ---------- menu ----------
+
 
 def parse_effective_from(value: str) -> datetime:
     cleaned = re.sub(r"(\d+)(st|nd|rd|th)", r"\1", value)
@@ -126,18 +140,30 @@ def escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def build_message(menu: dict, meal: str, today: datetime, veg_only: bool = False) -> str:
+def build_message(
+    menu: dict, meal: str, today: datetime, veg_only: bool = False
+) -> str:
     emoji, label = MEAL_DISPLAY[meal]
     meal_data = menu["meals"].get(meal)
     weekday = today.strftime("%A")
-    time_range = escape_html(meal_data["time"].replace(" to ", " – ")) if meal_data else ""
-    header = f"{emoji} <b>{label}</b> — {time_range}" if meal_data else f"{emoji} <b>{label}</b>"
+    time_range = (
+        escape_html(meal_data["time"].replace(" to ", " – ")) if meal_data else ""
+    )
+    header = (
+        f"{emoji} <b>{label}</b> — {time_range}"
+        if meal_data
+        else f"{emoji} <b>{label}</b>"
+    )
 
     items = (meal_data or {}).get("items", {}).get(weekday, [])
     if veg_only:
         items = [strip_nonveg(i) for i in items]
     items = [i for i in items if i and i.upper() != "NA"]
-    body = "\n".join(f"• {escape_html(i)}" for i in items) if items else "Menu not available for today — check the noticeboard."
+    body = (
+        "\n".join(f"• {escape_html(i)}" for i in items)
+        if items
+        else "Menu not available for today — check the noticeboard."
+    )
 
     return f"{header}\n\n{body}"
 
@@ -164,7 +190,9 @@ def determine_target_meal(menu: dict, now: datetime):
         if not meal_data or not meal_data.get("time"):
             continue
         start, end = parse_time_range(meal_data["time"])
-        start_dt = now.replace(hour=start.hour, minute=start.minute, second=0, microsecond=0)
+        start_dt = now.replace(
+            hour=start.hour, minute=start.minute, second=0, microsecond=0
+        )
         end_dt = now.replace(hour=end.hour, minute=end.minute, second=0, microsecond=0)
         today_slots.append((meal, start_dt, end_dt))
 
@@ -179,18 +207,26 @@ def determine_target_meal(menu: dict, now: datetime):
     return MEALS[0], now + timedelta(days=1), "next"  # everything today is over
 
 
-def build_ondemand_message(menu: dict, meal: str, target_dt: datetime, status: str, now: datetime, veg_only: bool = False) -> str:
+def build_ondemand_message(
+    menu: dict,
+    meal: str,
+    target_dt: datetime,
+    status: str,
+    now: datetime,
+    veg_only: bool = False,
+) -> str:
     base = build_message(menu, meal, target_dt, veg_only)
     if status == "now":
-        lead = "\U0001F514 Currently serving"
+        lead = "\U0001f514 Currently serving"
     elif target_dt.date() != now.date():
-        lead = "\U0001F514 That's it for today — tomorrow's first meal"
+        lead = "\U0001f514 That's it for today — tomorrow's first meal"
     else:
-        lead = "\U0001F514 Coming up next"
+        lead = "\U0001f514 Coming up next"
     return f"{lead}:\n\n{base}"
 
 
 # ---------- subscriber store ----------
+
 
 def load_state() -> dict:
     if SUBSCRIBERS_FILE.exists():
@@ -207,6 +243,7 @@ def save_state(state: dict) -> None:
 
 
 # ---------- Telegram ----------
+
 
 def api_request(method: str, url: str, **kwargs):
     """Telegram sometimes resets the connection or times out from GitHub's
@@ -240,10 +277,14 @@ def parse_time(raw: str):
     hour, minute = int(m.group(1)), int(m.group(2))
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         return None
-    return f"{hour:02d}:{minute:02d}"  # canonical, zero-padded -- safe to string-compare
+    return (
+        f"{hour:02d}:{minute:02d}"  # canonical, zero-padded -- safe to string-compare
+    )
 
 
-def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict) -> None:
+def handle_command(
+    state: dict, token: str, chat_id: int, text: str, menu: dict
+) -> None:
     subs = state["subscribers"]
     key = str(chat_id)
     parts = text.split()
@@ -251,29 +292,49 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
 
     if cmd == "/start":
         if key not in subs:
-            subs[key] = {"prefs": dict(DEFAULT_PREFS), "last_sent": {}, "veg_only": False}
+            subs[key] = {
+                "prefs": dict(DEFAULT_PREFS),
+                "last_sent": {},
+                "veg_only": False,
+            }
         prefs = subs[key]["prefs"]
-        times = "\n".join(f"{MEAL_DISPLAY[m][0]} {MEAL_DISPLAY[m][1]}: {prefs[m]}" for m in MEALS)
-        send(token, chat_id,
-             "\U0001F37D️ Welcome to NotiMess!\n\n"
-             "You're subscribed to VIT Bhopal hostel mess menu notifications.\n\n"
-             f"Your times (defaults, IST):\n{times}\n\n"
-             "Change any of them, e.g.:\n/settime breakfast 08:00\n\n"
-             "/vegonly to hide non-veg items · /full for today's whole menu\n"
-             "/mytimes to see your current settings · /stop to unsubscribe")
+        times = "\n".join(
+            f"{MEAL_DISPLAY[m][0]} {MEAL_DISPLAY[m][1]}: {prefs[m]}" for m in MEALS
+        )
+        send(
+            token,
+            chat_id,
+            "\U0001f37d️ Welcome to NotiMess!\n\n"
+            "You're subscribed to VIT Bhopal hostel mess menu notifications.\n\n"
+            f"Your times (defaults, IST):\n{times}\n\n"
+            "Change any of them, e.g.:\n/settime breakfast 08:00\n\n"
+            "/vegonly to hide non-veg items · /full for today's whole menu\n"
+            "/mytimes to see your current settings · /stop to unsubscribe",
+        )
 
     elif cmd == "/menu":
         now = datetime.now(TIMEZONE)
         veg_only = subs.get(key, {}).get("veg_only", False)
         meal, target_dt, status = determine_target_meal(menu, now)
-        send(token, chat_id, build_ondemand_message(menu, meal, target_dt, status, now, veg_only), parse_mode="HTML")
+        send(
+            token,
+            chat_id,
+            build_ondemand_message(menu, meal, target_dt, status, now, veg_only),
+            parse_mode="HTML",
+        )
 
     elif cmd == "/full":
         now = datetime.now(TIMEZONE)
         veg_only = subs.get(key, {}).get("veg_only", False)
         weekday = now.strftime("%A")
         sections = [build_message(menu, m, now, veg_only) for m in MEALS]
-        send(token, chat_id, f"\U0001F4C5 <b>Today's full menu</b> ({weekday}):\n\n" + "\n\n———\n\n".join(sections), parse_mode="HTML")
+        send(
+            token,
+            chat_id,
+            f"\U0001f4c5 <b>Today's full menu</b> ({weekday}):\n\n"
+            + "\n\n———\n\n".join(sections),
+            parse_mode="HTML",
+        )
 
     elif cmd == "/vegonly":
         if key not in subs:
@@ -281,26 +342,46 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
             return
         subs[key]["veg_only"] = not subs[key].get("veg_only", False)
         if subs[key]["veg_only"]:
-            send(token, chat_id, "\U0001F331 Veg-only mode is now ON — non-veg items will be hidden from your menus.")
+            send(
+                token,
+                chat_id,
+                "\U0001f331 Veg-only mode is now ON — non-veg items will be hidden from your menus.",
+            )
         else:
-            send(token, chat_id, "Veg-only mode is now OFF — you'll see everything again.")
+            send(
+                token,
+                chat_id,
+                "Veg-only mode is now OFF — you'll see everything again.",
+            )
 
     elif cmd == "/stop":
         if key in subs:
             del subs[key]
-        send(token, chat_id, "You've been unsubscribed from NotiMess. Send /start anytime to subscribe again.")
+        send(
+            token,
+            chat_id,
+            "You've been unsubscribed from NotiMess. Send /start anytime to subscribe again.",
+        )
 
     elif cmd == "/settime":
         if key not in subs:
             send(token, chat_id, "You're not subscribed yet — send /start first.")
             return
         if len(parts) != 3:
-            send(token, chat_id, "Usage: /settime <breakfast|lunch|high_tea|dinner> <HH:MM>\nExample: /settime breakfast 08:00")
+            send(
+                token,
+                chat_id,
+                "Usage: /settime <breakfast|lunch|high_tea|dinner> <HH:MM>\nExample: /settime breakfast 08:00",
+            )
             return
         meal = MEAL_ALIASES.get(parts[1].lower())
         time_str = parse_time(parts[2])
         if not meal:
-            send(token, chat_id, "Unknown meal. Use one of: breakfast, lunch, high_tea, dinner")
+            send(
+                token,
+                chat_id,
+                "Unknown meal. Use one of: breakfast, lunch, high_tea, dinner",
+            )
             return
         if not time_str:
             send(token, chat_id, "Time must be 24-hour HH:MM, e.g. 08:00 or 19:30")
@@ -309,16 +390,27 @@ def handle_command(state: dict, token: str, chat_id: int, text: str, menu: dict)
         emoji, label = MEAL_DISPLAY[meal]
         counter = menu["meals"].get(meal, {}).get("time", "") if menu else ""
         note = f"\n(Counter hours: {counter})" if counter else ""
-        send(token, chat_id, f"Done — {label} notifications now arrive at {time_str} IST.{note}")
+        send(
+            token,
+            chat_id,
+            f"Done — {label} notifications now arrive at {time_str} IST.{note}",
+        )
 
     elif cmd == "/mytimes":
         if key not in subs:
             send(token, chat_id, "You're not subscribed — send /start first.")
             return
         prefs = subs[key]["prefs"]
-        lines = "\n".join(f"{MEAL_DISPLAY[m][0]} {MEAL_DISPLAY[m][1]}: {prefs.get(m, DEFAULT_PREFS[m])}" for m in MEALS)
+        lines = "\n".join(
+            f"{MEAL_DISPLAY[m][0]} {MEAL_DISPLAY[m][1]}: {prefs.get(m, DEFAULT_PREFS[m])}"
+            for m in MEALS
+        )
         veg_state = "ON" if subs[key].get("veg_only", False) else "OFF"
-        send(token, chat_id, f"Your notification times (IST):\n\n{lines}\n\nVeg-only mode: {veg_state}")
+        send(
+            token,
+            chat_id,
+            f"Your notification times (IST):\n\n{lines}\n\nVeg-only mode: {veg_state}",
+        )
 
     elif cmd == "/reset":
         if key in subs:
@@ -362,7 +454,9 @@ def poll_updates(state: dict, token: str, menu: dict) -> None:
     state["last_update_id"] = max_update_id
 
 
-def send_due_notifications(state: dict, token: str, menu: dict, today: datetime) -> list:
+def send_due_notifications(
+    state: dict, token: str, menu: dict, today: datetime
+) -> list:
     today_str = today.strftime("%Y-%m-%d")
     now_str = today.strftime("%H:%M")
     blocked = []
@@ -382,11 +476,19 @@ def send_due_notifications(state: dict, token: str, menu: dict, today: datetime)
             result = send(token, int(chat_id_str), message, parse_mode="HTML")
             if result.get("ok"):
                 last_sent[meal] = today_str
-                print(f"Sent {meal} to {chat_id_str} (preferred {preferred}, sent at {now_str})")
+                print(
+                    f"Sent {meal} to {chat_id_str} (preferred {preferred}, sent at {now_str})"
+                )
             else:
                 description = result.get("description", "")
-                print(f"Failed to message {chat_id_str} for {meal}: {description}", file=sys.stderr)
-                if "blocked" in description.lower() or "chat not found" in description.lower():
+                print(
+                    f"Failed to message {chat_id_str} for {meal}: {description}",
+                    file=sys.stderr,
+                )
+                if (
+                    "blocked" in description.lower()
+                    or "chat not found" in description.lower()
+                ):
                     blocked.append(chat_id_str)
                     break  # stop trying this subscriber's other meals this run
 
@@ -399,8 +501,12 @@ def debug_bot_info(token: str) -> None:
     getUpdates return nothing, since Telegram only delivers via one channel
     at a time)."""
     try:
-        me = requests.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10).json()
-        hook = requests.get(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=10).json()
+        me = requests.get(
+            f"https://api.telegram.org/bot{token}/getMe", timeout=10
+        ).json()
+        hook = requests.get(
+            f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=10
+        ).json()
         print(f"Bot: {me.get('result', {}).get('username')!r} (ok={me.get('ok')})")
         webhook_url = hook.get("result", {}).get("url")
         print(f"Webhook URL: {webhook_url or '(none -- good, polling will work)'}")
@@ -443,16 +549,34 @@ def main() -> int:
     except requests.RequestException as exc:
         # Telegram is unreachable. The cron retries in a minute and the
         # at-or-after rule re-sends whatever was missed, so a blip is not a
-        # failure. Only fail (-> one GitHub email) if it has lasted 3 ticks.
+        # failure. Only fail (-> one GitHub email) if it has lasted 3 ticks,
+        # and at most once per 6h: overlapping ticks can each see the same
+        # stale counter and would otherwise email once each.
         failures = state.get("network_failures", 0) + 1
         state["network_failures"] = failures
+        now = datetime.now(TIMEZONE)
+        last_alert = state.get("last_alert_at")
+        try:
+            recently_alerted = (
+                last_alert is not None
+                and now - datetime.fromisoformat(last_alert) < ALERT_COOLDOWN
+            )
+        except ValueError:
+            recently_alerted = False
+        alert = failures >= 3 and not recently_alerted
+        if alert:
+            state["last_alert_at"] = now.isoformat()
         save_state(state)
-        print(f"Telegram unreachable ({exc}); {failures} failed tick(s) in a row", file=sys.stderr)
-        return 1 if failures == 3 else 0
+        print(
+            f"Telegram unreachable ({exc}); {failures} failed tick(s) in a row",
+            file=sys.stderr,
+        )
+        return 1 if alert else 0
 
     for chat_id_str in blocked:
         state["subscribers"].pop(chat_id_str, None)
     state["network_failures"] = 0
+    state.pop("last_alert_at", None)
 
     save_state(state)
     print(f"Done. {len(state['subscribers'])} active subscriber(s).")
