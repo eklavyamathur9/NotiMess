@@ -1,7 +1,6 @@
 {
-  "last_alert_at": "2026-11-25T22:18:20.050136+05:30",
   "last_update_id": 346383728,
-  "network_failures": 8,
+  "network_failures": 0,
   "subscribers": {
     "1356361611": {
       "last_sent": {
